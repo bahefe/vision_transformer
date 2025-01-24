@@ -1,29 +1,41 @@
 import torch
 import pytorch_lightning as pl
 import argparse
-
+from utils.save_results import SaveJSONCallback
 from data.data_module import CIFAR10DataModule
 from models.vision_transformer import LitVisionTransformer, PrintMetricsCallback
+from pytorch_lightning.callbacks import ModelCheckpoint
+
+import argparse
+import torch
+import pytorch_lightning as pl
+from data.data_module import CIFAR10DataModule
+from models.vision_transformer import LitVisionTransformer
+
+import argparse
+import json
+import os
+import torch
+import pytorch_lightning as pl
+from data.data_module import CIFAR10DataModule
+from models.vision_transformer import LitVisionTransformer
 
 def main(args):
-    # Basic data module (no val)
-    dm = CIFAR10DataModule(data_dir=args.data_dir, batch_size=args.batch_size)
-
-    # Minimal model config
-    model = LitVisionTransformer(
-        lr=args.lr,
-        img_size=32,
-        patch_size=4,
-        in_channels=3,
-        num_classes=10,
-        embed_dim=256,
-        depth=6,
-        num_heads=4,
-        mlp_ratio=4.0,
-        dropout=0.1
+    dm = CIFAR10DataModule(
+        data_dir=args.data_dir,
+        batch_size=args.batch_size
     )
 
-    # Choose device
+    model = LitVisionTransformer(
+        lr=args.lr,
+        patch_size=args.patch_size,
+        num_heads=args.num_heads,
+        embed_dim=args.embed_dim,
+        depth=args.depth,
+        dropout=args.dropout,
+    )
+
+    # pick accelerator
     if torch.backends.mps.is_available():
         accelerator = "mps"
     elif torch.cuda.is_available():
@@ -31,20 +43,40 @@ def main(args):
     else:
         accelerator = "cpu"
 
-    # Basic trainer
     trainer = pl.Trainer(
         max_epochs=args.epochs,
         accelerator=accelerator,
         devices=1,
-        callbacks=[PrintMetricsCallback()],
     )
 
-    # Train
+    # Fit (runs train and val)
     trainer.fit(model, dm)
 
-    # Test (optional)
+    # Log results to a file
+    val_acc = trainer.callback_metrics.get("val_acc")
+    log_data = {
+        "patch_size": args.patch_size,
+        "num_heads": args.num_heads,
+        "batch_size": args.batch_size,
+        "epochs": args.epochs,
+        "lr": args.lr,
+        "val_acc": float(val_acc) * 100 if val_acc is not None else None
+    }
+
+    # Create logs directory if it doesn't exist
+    os.makedirs("results/logs", exist_ok=True)
+    log_file = os.path.join("results/logs", f"log_patch{args.patch_size}_heads{args.num_heads}_batch{args.batch_size}.json")
+
+    # Save log to a file
+    with open(log_file, "w") as f:
+        json.dump(log_data, f, indent=4)
+    print(f"Results logged to {log_file}")
+
+    # Optional test
     if args.test:
-        trainer.test(model, dm)
+        trainer.test(model, datamodule=dm)
+        test_acc = trainer.callback_metrics.get("test_acc")
+        print(f"Final test_acc: {float(test_acc) * 100:.2f}%" if test_acc is not None else "No test accuracy logged.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -52,6 +84,11 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--test", action="store_true")
+    parser.add_argument("--embed_dim", type=int, default=256)
+    parser.add_argument("--depth", type=int, default=6)
+    parser.add_argument("--patch_size", type=int, default=4)
+    parser.add_argument("--num_heads", type=int, default=4)
+    parser.add_argument("--dropout", type=float, default=0.1)
+    parser.add_argument("--test", action="store_true", help="Run test after training.")
     args = parser.parse_args()
     main(args)

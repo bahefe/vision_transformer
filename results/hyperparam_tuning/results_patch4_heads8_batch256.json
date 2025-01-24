@@ -1,0 +1,7 @@
+{
+    "patch_size": 4,
+    "num_heads": 8,
+    "batch_size": 256,
+    "val_acc": null,
+    "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+}

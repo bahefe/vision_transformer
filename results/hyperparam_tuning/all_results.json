@@ -1,0 +1,191 @@
+[
+    {
+        "patch_size": 2,
+        "num_heads": 2,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 2,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 2,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 4,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 4,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 4,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 8,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 8,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 2,
+        "num_heads": 8,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 2,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 2,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 2,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 4,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 4,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 4,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 8,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 8,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 4,
+        "num_heads": 8,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 2,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 2,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 2,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 4,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 4,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 4,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 8,
+        "batch_size": 64,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 8,
+        "batch_size": 128,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    },
+    {
+        "patch_size": 8,
+        "num_heads": 8,
+        "batch_size": 256,
+        "val_acc": null,
+        "output": "Files already downloaded and verified\nFiles already downloaded and verified\n"
+    }
+]

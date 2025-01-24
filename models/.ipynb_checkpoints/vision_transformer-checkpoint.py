@@ -197,6 +197,18 @@ class LitVisionTransformer(pl.LightningModule):
 
         return loss
 
+    def test_step(self, batch, batch_idx):
+        images, labels = batch
+        logits = self(images)
+        loss = self.criterion(logits, labels)
+
+        preds = logits.argmax(dim=1)
+        acc = (preds == labels).float().mean()
+
+        self.log("test_loss", loss, prog_bar=False)
+        self.log("test_acc", acc, prog_bar=True)
+        return loss
+
     def configure_optimizers(self):
         # SIMPLE Adam
         return optim.Adam(self.parameters(), lr=self.hparams.lr)
