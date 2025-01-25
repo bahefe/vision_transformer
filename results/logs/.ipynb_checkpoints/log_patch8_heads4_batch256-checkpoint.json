@@ -1,0 +1,8 @@
+{
+    "patch_size": 8,
+    "num_heads": 4,
+    "batch_size": 256,
+    "epochs": 5,
+    "lr": 0.0001,
+    "val_acc": 27.75000035762787
+}

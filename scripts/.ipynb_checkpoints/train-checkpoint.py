@@ -74,16 +74,28 @@ def main(args):
         test_acc = trainer.callback_metrics.get("test_acc")
         print(f"Final test_acc: {float(test_acc) * 100:.2f}%" if test_acc is not None else "No test accuracy logged.")
 
+    # Inside main() function after trainer.fit(...):
+
+    # Save full model weights
+    final_model_path = os.path.join("results", "model_weights.pth")
+    torch.save(model.model.state_dict(), final_model_path)
+    print(f"\nModel parameters saved to {final_model_path}")
+    
+    # Optional: Save full Lightning checkpoint (includes optimizer state)
+    checkpoint_path = os.path.join("results", "full_checkpoint.ckpt")
+    trainer.save_checkpoint(checkpoint_path)
+    print(f"Full checkpoint saved to {checkpoint_path}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="./data")
-    parser.add_argument("--batch_size", type=int, default=256)
+    parser.add_argument("--batch_size", type=int, default=512)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--embed_dim", type=int, default=384)
+    parser.add_argument("--embed_dim", type=int, default=256) # x 4 = hidden size for mlp
     parser.add_argument("--depth", type=int, default=6)
-    parser.add_argument("--patch_size", type=int, default=8)
-    parser.add_argument("--num_heads", type=int, default=4)
+    parser.add_argument("--patch_size", type=int, default=4)
+    parser.add_argument("--num_heads", type=int, default=8)
     parser.add_argument("--dropout", type=float, default=0.1)
     parser.add_argument("--test", action="store_true", help="Run test after training.")
     args = parser.parse_args()
