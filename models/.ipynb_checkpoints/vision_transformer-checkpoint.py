@@ -1,8 +1,4 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import pytorch_lightning as pl
-from torch import optim
+# models/vision_transformer.py
 
 import math
 import time
@@ -11,10 +7,32 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch import optim
-from utils.optimizer_params import create_adam_linear_warmup, create_adam_cosine_warmup
+
+# ---------------- Custom Soft Cross-Entropy Loss ----------------
+class SoftCrossEntropyLoss(nn.Module):
+    """
+    Handles both integer class labels (for standard cross-entropy)
+    and 'soft' labels (for MixUp or CutMix).
+    
+    Usage:
+      - If labels.shape == [batch_size], integer labels => standard cross-entropy.
+      - If labels.shape == [batch_size, num_classes], soft labels => soft cross-entropy.
+    """
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        # If labels are integer => standard cross entropy
+        if labels.dim() == 1:
+            return F.cross_entropy(logits, labels)
+
+        # If labels are already one-hot or soft => do soft cross-entropy
+        log_probs = F.log_softmax(logits, dim=1)
+        loss = -torch.sum(labels * log_probs, dim=1)
+        return loss.mean()
+
 
 # ---------------- Model Components ----------------
-
 class MultiHeadSelfAttention(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.0):
         super().__init__()
@@ -23,31 +41,36 @@ class MultiHeadSelfAttention(nn.Module):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
-        
-        self.qkv = nn.Linear(embed_dim, embed_dim * 3) 
+        self.scale = 1.0 / math.sqrt(self.head_dim)
+
+        # Single linear layer for Q/K/V
+        self.qkv = nn.Linear(embed_dim, 3 * embed_dim)
         self.out_proj = nn.Linear(embed_dim, embed_dim)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = dropout
 
     def forward(self, x):
         B, N, D = x.shape
-        H = self.num_heads
-        qkv = self.qkv(x)                            # [B, N, 3*D]
-        qkv = qkv.reshape(B, N, 3, H, self.head_dim)  # [B, N, 3, H, head_dim]
-        qkv = qkv.permute(2, 0, 3, 1, 4)              # [3, B, H, N, head_dim]
-        q, k, v = qkv[0], qkv[1], qkv[2]              # each [B, H, N, head_dim]
+        H, h_dim = self.num_heads, self.head_dim
 
-        attn_scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)  # [B, H, N, N]
-        attn_weights = F.softmax(attn_scores, dim=-1)                       # [B, H, N, N]
-        attn_weights = self.dropout(attn_weights)
+        # Project all at once [3*B, N, (H * h_dim)]
+        qkv = self.qkv(x).chunk(3, dim=-1)  # Tuple of [B, N, D] * 3
+        
+        # Reshape without permute
+        q, k, v = [t.view(B, N, H, h_dim).transpose(1, 2) for t in qkv]
 
-        out = attn_weights @ v         # [B, H, N, head_dim]
-        out = out.transpose(1, 2)      # [B, N, H, head_dim]
-        out = out.reshape(B, N, D)     # [B, N, embed_dim]
-        out = self.out_proj(out)
-        return out
+        # Use PyTorch's optimized attention (Flash Attention when available)
+        attn_output = F.scaled_dot_product_attention(
+            q, k, v,
+            dropout_p=self.dropout if self.training else 0.0,
+            scale=self.scale
+        )
 
+        # Merge heads
+        attn_output = attn_output.transpose(1, 2).reshape(B, N, D)
+        
+        return self.out_proj(attn_output)
 
-class TransformerEncoderBlock(nn.Module):
+class TransformerEncoderBlock(nn.Module): ##Correct
     def __init__(self, embed_dim, num_heads, mlp_ratio=4.0, dropout=0.0):
         super().__init__()
         self.norm1 = nn.LayerNorm(embed_dim)
@@ -116,21 +139,32 @@ class VisionTransformer(nn.Module):
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         num_patches = self.patch_embed.num_patches
         
+        # Class token
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = sinusoidal_positional_encoding(num_patches + 1, embed_dim)
+        
+        # Learned positional embeddings (modified)
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
         self.pos_drop = nn.Dropout(dropout)
         
+        # Transformer blocks
         self.blocks = nn.ModuleList([
             TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout)
             for _ in range(depth)
         ])
+        
         self.norm = nn.LayerNorm(embed_dim)
         self.head = nn.Linear(embed_dim, num_classes)
 
         self._init_weights()
 
     def _init_weights(self):
+        # Original class token initialization
         nn.init.normal_(self.cls_token, std=1e-6)
+        
+        # Initialize positional embeddings (new)
+        nn.init.trunc_normal_(self.pos_embed, std=0.02)  # More ViT-like initialization
+        
+        # Head initialization
         nn.init.xavier_uniform_(self.head.weight)
         nn.init.normal_(self.head.bias, std=1e-6)
 
@@ -138,16 +172,19 @@ class VisionTransformer(nn.Module):
         x = self.patch_embed(x)  # [B, N, embed_dim]
         B, N, D = x.shape
 
+        # Add class token
         cls_tokens = self.cls_token.expand(B, -1, -1)  # [B, 1, D]
         x = torch.cat((cls_tokens, x), dim=1)          # [B, N+1, D]
         
-        pos_embed = self.pos_embed.to(x.device)
-        x = x + pos_embed
+        # Add learned positional embeddings (modified)
+        x = x + self.pos_embed
         x = self.pos_drop(x)
 
+        # Transformer blocks
         for blk in self.blocks:
             x = blk(x)
         
+        # Final classification
         x = self.norm(x)
         cls_token_final = x[:, 0]  # [B, D]
         logits = self.head(cls_token_final)
@@ -165,10 +202,11 @@ class LitVisionTransformer(pl.LightningModule):
                  depth=6,
                  num_heads=4,
                  mlp_ratio=4.0,
-                 dropout=0.1):
+                 dropout=0.1,
+                label_smoothing=0.1):
         super().__init__()
         self.save_hyperparameters()
-
+    
         self.model = VisionTransformer(
             img_size=img_size,
             patch_size=patch_size,
@@ -180,7 +218,9 @@ class LitVisionTransformer(pl.LightningModule):
             mlp_ratio=mlp_ratio,
             dropout=dropout
         )
-        self.criterion = nn.CrossEntropyLoss()
+
+        # --- Use our Soft Cross Entropy Loss ---
+        self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
     def forward(self, x):
         return self.model(x)
@@ -190,20 +230,46 @@ class LitVisionTransformer(pl.LightningModule):
         logits = self(images)
         loss = self.criterion(logits, labels)
 
+        # Accuracy calculation (handles both soft/hard labels)
         preds = logits.argmax(dim=1)
-        acc = (preds == labels).float().mean()
+        target_classes = labels.argmax(dim=1) if labels.dim() > 1 else labels  # Key change
+        acc = (preds == target_classes).float().mean()
+
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_acc", acc, prog_bar=True)
+        return loss
 
+    def validation_step(self, batch, batch_idx):
+        images, labels = batch
+        logits = self(images)
+        loss = self.criterion(logits, labels)
+
+        # Validation labels are always hard targets - no need for argmax check
+        preds = logits.argmax(dim=1)
+        acc = (preds == labels).float().mean()  # Direct comparison
+
+        self.log("val_loss", loss, prog_bar=False)
+        self.log("val_acc", acc, prog_bar=True)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        images, labels = batch
+        logits = self(images)
+        loss = self.criterion(logits, labels)
+
+        # Test labels are always hard targets
+        preds = logits.argmax(dim=1)
+        acc = (preds == labels).float().mean()  # Direct comparison
+
+        self.log("test_loss", loss, prog_bar=False)
+        self.log("test_acc", acc, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
-        # SIMPLE Adam
         return optim.Adam(self.parameters(), lr=self.hparams.lr)
 
-# ---------------- Optional Callback(s) ----------------
 
-# models/vision_transformer.py (or a separate callbacks.py file)
+# Optional callback for printing metrics
 class PrintMetricsCallback(pl.Callback):
     def on_train_epoch_start(self, trainer, pl_module):
         self.epoch_start_time = time.time()
@@ -213,11 +279,9 @@ class PrintMetricsCallback(pl.Callback):
         epoch_mins = elapsed / 60.0
         current_epoch = trainer.current_epoch
         
-        # Now just print training metrics. For example:
         train_acc = trainer.callback_metrics.get("train_acc")
         if train_acc is not None:
             train_acc = float(train_acc) * 100.0
             print(f"Epoch {current_epoch} finished in {epoch_mins:.2f} min - train_acc: {train_acc:.2f}%")
         else:
             print(f"Epoch {current_epoch} finished in {epoch_mins:.2f} min - no train_acc logged")
-

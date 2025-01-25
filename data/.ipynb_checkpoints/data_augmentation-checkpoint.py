@@ -25,13 +25,13 @@ transforms_no_augment = v2.Compose(
 
 # Create raw train/test sets (with "base" transforms).
 train_set = CIFAR10(
-    root="your/root/directory",
+    root="data/",
     transform=transforms_augmentation,
     download=True,
     train=True,
 )
 test_set = CIFAR10(
-    root="your/root/directory",
+    root="data/",
     transform=transforms_no_augment,
     download=True,
     train=False,
