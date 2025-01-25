@@ -31,7 +31,17 @@ def main(args):
         dropout=args.dropout,
     )
 
-    # pick accelerator
+    # Create callbacks
+    save_json_callback = SaveJSONCallback()
+    checkpoint_callback = ModelCheckpoint(
+        dirpath="results/checkpoints",
+        filename="best_model-{epoch}-{val_acc:.2f}",
+        monitor="val_acc",
+        mode="max",
+        save_top_k=1
+    )
+
+    # Pick accelerator
     if torch.backends.mps.is_available():
         accelerator = "mps"
     elif torch.cuda.is_available():
@@ -43,48 +53,27 @@ def main(args):
         max_epochs=args.epochs,
         accelerator=accelerator,
         devices=1,
+        callbacks=[
+            save_json_callback,
+            checkpoint_callback,
+            PrintMetricsCallback()
+        ]
     )
 
     # Fit (runs train and val)
     trainer.fit(model, dm)
 
-    # Log results to a file
-    val_acc = trainer.callback_metrics.get("val_acc")
-    log_data = {
-        "patch_size": args.patch_size,
-        "num_heads": args.num_heads,
-        "batch_size": args.batch_size,
-        "epochs": args.epochs,
-        "lr": args.lr,
-        "val_acc": float(val_acc) * 100 if val_acc is not None else None
-    }
-
-    # Create logs directory if it doesn't exist
-    os.makedirs("results/logs", exist_ok=True)
-    log_file = os.path.join("results/logs", f"log_patch{args.patch_size}_heads{args.num_heads}_batch{args.batch_size}.json")
-
-    # Save log to a file
-    with open(log_file, "w") as f:
-        json.dump(log_data, f, indent=4)
-    print(f"Results logged to {log_file}")
-
-    # Optional test
+    # Run test if requested
     if args.test:
         trainer.test(model, datamodule=dm)
-        test_acc = trainer.callback_metrics.get("test_acc")
-        print(f"Final test_acc: {float(test_acc) * 100:.2f}%" if test_acc is not None else "No test accuracy logged.")
 
-    # Inside main() function after trainer.fit(...):
-
-    # Save full model weights
+    # Save final model weights (already handled by SaveJSONCallback for metrics)
     final_model_path = os.path.join("results", "model_weights.pth")
     torch.save(model.model.state_dict(), final_model_path)
     print(f"\nModel parameters saved to {final_model_path}")
-    
-    # Optional: Save full Lightning checkpoint (includes optimizer state)
-    checkpoint_path = os.path.join("results", "full_checkpoint.ckpt")
-    trainer.save_checkpoint(checkpoint_path)
-    print(f"Full checkpoint saved to {checkpoint_path}")
+
+    # No need for separate log_data - all metrics in results.json
+    print("\nAll training metrics saved to results.json via SaveJSONCallback")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -9,44 +9,43 @@ class SaveJSONCallback(pl.Callback):
         self.epoch_data = []
 
     def on_train_epoch_start(self, trainer, pl_module):
-        # Record time at the beginning of each epoch
         self.epoch_start_time = time.time()
 
     def on_train_epoch_end(self, trainer, pl_module):
-        # Calculate how long this epoch took
         elapsed = time.time() - self.epoch_start_time
         epoch_mins = elapsed / 60.0
-
-        # Current epoch index
         current_epoch = trainer.current_epoch
 
-        # Get the train accuracy that was logged (if any)
+        # Get training metrics
         train_acc = trainer.callback_metrics.get("train_acc")
-        if train_acc is not None:
-            train_acc = float(train_acc) * 100.0  # Convert from 0-1 to percentage
-        else:
-            train_acc = None
+        train_acc = float(train_acc) * 100.0 if train_acc else None
 
-        # Store these metrics in a list
+        # Create new epoch entry with training data
         self.epoch_data.append({
             "epoch": current_epoch,
             "train_acc": train_acc,
             "time_minutes": round(epoch_mins, 3),
+            "val_acc": None  # Initialize val_acc slot
         })
 
-    def on_test_end(self, trainer, pl_module):
-        """
-        Called once after all test batches are processed.
-        We'll dump the epoch data plus final test accuracy to a JSON file.
-        """
-        test_acc = trainer.callback_metrics.get("test_acc")
-        if test_acc is not None:
-            test_acc = float(test_acc) * 100.0
+    def on_validation_epoch_end(self, trainer, pl_module):
+        # Get validation accuracy
+        val_acc = trainer.callback_metrics.get("val_acc")
+        
+        if val_acc is not None and self.epoch_data:
+            # Update latest epoch entry with validation accuracy
+            val_acc_pct = float(val_acc) * 100.0
+            self.epoch_data[-1]["val_acc"] = round(val_acc_pct, 2)
 
-        # Wrap all results in a dict
+    def on_test_end(self, trainer, pl_module):
+        # Get final test accuracy
+        test_acc = trainer.callback_metrics.get("test_acc")
+        test_acc = float(test_acc) * 100.0 if test_acc else None
+
+        # Prepare final results
         results = {
             "epochs": self.epoch_data,
-            "final_test_acc": test_acc
+            "final_test_acc": round(test_acc, 2) if test_acc else None
         }
 
         # Write to JSON

@@ -21,19 +21,13 @@ class CIFAR10DataModule(LightningDataModule):
         self.data_dir = data_dir
         self.batch_size = batch_size
 
-    def setup(self, stage=None):
-        # If you're already creating `train_set` and `test_set` in data_augmentation.py`,
-        # there's nothing else to do here. Just confirm there's no reference to
-        # self.train_transform or self.test_transform.
-        pass
-
     def train_dataloader(self):
         return DataLoader(
             train_set,
             batch_size=self.batch_size,
             shuffle=True,
             collate_fn=collate_fn_augment,  # for MixUp/CutMix
-            num_workers=0,
+            num_workers=4,
         )
 
     def val_dataloader(self):
@@ -43,7 +37,7 @@ class CIFAR10DataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             collate_fn=collate_fn_no_augment,
-            num_workers=0,
+            num_workers=4,
         )
 
     def test_dataloader(self):
@@ -52,5 +46,5 @@ class CIFAR10DataModule(LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             collate_fn=collate_fn_no_augment,
-            num_workers=0,
+            num_workers=4,
         )
