@@ -1,50 +1,68 @@
 import pytorch_lightning as pl
-import torch
-from torch.utils.data import DataLoader
-import torchvision
-from data.data_augmentation import train_set, test_set, collate_fn_no_augment
-import torchvision.transforms as T
+from torch.utils.data import DataLoader, random_split
+from data.data_augmentation import (
+    transforms_augmentation,
+    transforms_no_augment,
+    collate_fn_augment,
+    collate_fn_no_augment,
+)
+from torchvision.datasets import CIFAR10
 
-class CIFAR10DataModule(pl.LightningDataModule):
-    def __init__(self, data_dir="./data", batch_size=128):
+class CIFAR10DataModule(pl.LightningDataModule):  # Use pl.LightningDataModule
+    def __init__(self, data_dir="./data", batch_size=128, val_split=0.1):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
-        self.transform = T.Compose([
-            T.ToTensor(),
-        ])
-
-    def prepare_data(self):
-        torchvision.datasets.CIFAR10(self.data_dir, train=True, download=True)
-        torchvision.datasets.CIFAR10(self.data_dir, train=False, download=True)
+        self.val_split = val_split
 
     def setup(self, stage=None):
-        if stage == "fit" or stage is None:
-            # Use the entire train set without splitting
-            self.train_data = torchvision.datasets.CIFAR10(
-                self.data_dir, train=True, transform=self.transform
-            )
-        if stage == "test" or stage is None:
-            self.test_data = torchvision.datasets.CIFAR10(
-                self.data_dir, train=False, transform=self.transform
-            )
+        # Load full training set
+        full_train_set = CIFAR10(
+            root=self.data_dir,
+            train=True,
+            transform=transforms_augmentation,
+            download=True,
+        )
+        
+        # Split into train/val
+        train_size = int((1 - self.val_split) * len(full_train_set))
+        val_size = len(full_train_set) - train_size
+        self.train_set, self.val_set = random_split(full_train_set, [train_size, val_size])
+        
+        # Test set remains unchanged
+        self.test_set = CIFAR10(
+            root=self.data_dir,
+            train=False,
+            transform=transforms_no_augment,
+            download=True,
+        )
 
     def train_dataloader(self):
         return DataLoader(
-            self.train_data,
+            self.train_set,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=2,
-            persistent_workers=True,
-            collate_fn=collate_fn_no_augment, 
+            collate_fn=collate_fn_augment,
+            num_workers=4,
+            persistent_workers=True,  # Add this line
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_set,
+            batch_size=self.batch_size,
+            shuffle=False,
+            collate_fn=collate_fn_no_augment,
+            num_workers=4,
+            persistent_workers=True,  # Add this line
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.test_data,
+            self.test_set,
             batch_size=self.batch_size,
             shuffle=False,
-            num_workers=2,
-            persistent_workers=True,
             collate_fn=collate_fn_no_augment,
+            num_workers=4,
+            persistent_workers=True,  # Add this line
         )

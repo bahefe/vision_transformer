@@ -1,9 +1,3 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import pytorch_lightning as pl
-from torch import optim
-
 import math
 import time
 import torch
@@ -11,9 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch import optim
-from utils.optimizer_params import create_adam_linear_warmup, create_adam_cosine_warmup
 
-# ---------------- Model Components ----------------
 
 class MultiHeadSelfAttention(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.0):
@@ -23,43 +15,48 @@ class MultiHeadSelfAttention(nn.Module):
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
-        
-        self.qkv = nn.Linear(embed_dim, embed_dim * 3) 
+        self.scale = 1.0 / math.sqrt(self.head_dim)
+
+        # Single linear layer for Q/K/V
+        self.qkv = nn.Linear(embed_dim, 3 * embed_dim)
         self.out_proj = nn.Linear(embed_dim, embed_dim)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = dropout
 
     def forward(self, x):
         B, N, D = x.shape
-        H = self.num_heads
-        qkv = self.qkv(x)                            # [B, N, 3*D]
-        qkv = qkv.reshape(B, N, 3, H, self.head_dim)  # [B, N, 3, H, head_dim]
-        qkv = qkv.permute(2, 0, 3, 1, 4)              # [3, B, H, N, head_dim]
-        q, k, v = qkv[0], qkv[1], qkv[2]              # each [B, H, N, head_dim]
+        H, h_dim = self.num_heads, self.head_dim
 
-        attn_scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)  # [B, H, N, N]
-        attn_weights = F.softmax(attn_scores, dim=-1)                       # [B, H, N, N]
-        attn_weights = self.dropout(attn_weights)
+        # Project all at once [3*B, N, (H * h_dim)]
+        qkv = self.qkv(x).chunk(3, dim=-1)  # Tuple of [B, N, D] * 3
+        
+        # Reshape without permute
+        q, k, v = [t.view(B, N, H, h_dim).transpose(1, 2) for t in qkv]
 
-        out = attn_weights @ v         # [B, H, N, head_dim]
-        out = out.transpose(1, 2)      # [B, N, H, head_dim]
-        out = out.reshape(B, N, D)     # [B, N, embed_dim]
-        out = self.out_proj(out)
-        return out
+        # Use PyTorch's optimized attention (Flash Attention when available)
+        attn_output = F.scaled_dot_product_attention(
+            q, k, v,
+            dropout_p=self.dropout if self.training else 0.0,
+            scale=self.scale
+        )
 
+        # Merge heads
+        attn_output = attn_output.transpose(1, 2).reshape(B, N, D)
+        
+        return self.out_proj(attn_output)
 
 class TransformerEncoderBlock(nn.Module):
-    def __init__(self, embed_dim, num_heads, mlp_ratio=4.0, dropout=0.0):
+    def __init__(self, embed_dim, num_heads, hidden_size, dropout=0.1):
         super().__init__()
         self.norm1 = nn.LayerNorm(embed_dim)
         self.attn = MultiHeadSelfAttention(embed_dim, num_heads, dropout=dropout)
         self.norm2 = nn.LayerNorm(embed_dim)
         
-        hidden_dim = int(embed_dim * mlp_ratio)
+        # Use explicit hidden_size
         self.mlp = nn.Sequential(
-            nn.Linear(embed_dim, hidden_dim),
+            nn.Linear(embed_dim, hidden_size),
             nn.GELU(),
             nn.Dropout(dropout),
-            nn.Linear(hidden_dim, embed_dim),
+            nn.Linear(hidden_size, embed_dim),
             nn.Dropout(dropout),
         )
 
@@ -108,7 +105,7 @@ class VisionTransformer(nn.Module):
         embed_dim=256,
         depth=6,
         num_heads=4,
-        mlp_ratio=4.0,
+        hidden_size=1024,  # Changed from mlp_ratio
         dropout=0.0,
     ):
         super().__init__()
@@ -116,21 +113,36 @@ class VisionTransformer(nn.Module):
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         num_patches = self.patch_embed.num_patches
         
+        # Class token
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = sinusoidal_positional_encoding(num_patches + 1, embed_dim)
+        
+        # Learned positional embeddings
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
         self.pos_drop = nn.Dropout(dropout)
         
+        # Transformer blocks with explicit hidden_size
         self.blocks = nn.ModuleList([
-            TransformerEncoderBlock(embed_dim, num_heads, mlp_ratio, dropout)
-            for _ in range(depth)
+            TransformerEncoderBlock(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                hidden_size=hidden_size,  # Changed
+                dropout=dropout
+            ) for _ in range(depth)
         ])
+        
         self.norm = nn.LayerNorm(embed_dim)
         self.head = nn.Linear(embed_dim, num_classes)
 
         self._init_weights()
 
     def _init_weights(self):
+        # Original class token initialization
         nn.init.normal_(self.cls_token, std=1e-6)
+        
+        # Initialize positional embeddings (new)
+        nn.init.trunc_normal_(self.pos_embed, std=0.02)  # More ViT-like initialization
+        
+        # Head initialization
         nn.init.xavier_uniform_(self.head.weight)
         nn.init.normal_(self.head.bias, std=1e-6)
 
@@ -138,16 +150,19 @@ class VisionTransformer(nn.Module):
         x = self.patch_embed(x)  # [B, N, embed_dim]
         B, N, D = x.shape
 
+        # Add class token
         cls_tokens = self.cls_token.expand(B, -1, -1)  # [B, 1, D]
         x = torch.cat((cls_tokens, x), dim=1)          # [B, N+1, D]
         
-        pos_embed = self.pos_embed.to(x.device)
-        x = x + pos_embed
+        # Add learned positional embeddings (modified)
+        x = x + self.pos_embed
         x = self.pos_drop(x)
 
+        # Transformer blocks
         for blk in self.blocks:
             x = blk(x)
         
+        # Final classification
         x = self.norm(x)
         cls_token_final = x[:, 0]  # [B, D]
         logits = self.head(cls_token_final)
@@ -164,11 +179,12 @@ class LitVisionTransformer(pl.LightningModule):
                  embed_dim=256,
                  depth=6,
                  num_heads=4,
-                 mlp_ratio=4.0,
-                 dropout=0.1):
+                 hidden_size=1024,  # Changed
+                 dropout=0.1,
+                 label_smoothing=0.1):
         super().__init__()
         self.save_hyperparameters()
-
+    
         self.model = VisionTransformer(
             img_size=img_size,
             patch_size=patch_size,
@@ -177,11 +193,12 @@ class LitVisionTransformer(pl.LightningModule):
             embed_dim=embed_dim,
             depth=depth,
             num_heads=num_heads,
-            mlp_ratio=mlp_ratio,
+            hidden_size=hidden_size,  # Changed
             dropout=dropout
         )
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
 
+        
     def forward(self, x):
         return self.model(x)
 
@@ -190,34 +207,53 @@ class LitVisionTransformer(pl.LightningModule):
         logits = self(images)
         loss = self.criterion(logits, labels)
 
+        # Accuracy calculation (handles both soft/hard labels)
         preds = logits.argmax(dim=1)
-        acc = (preds == labels).float().mean()
+        target_classes = labels.argmax(dim=1) if labels.dim() > 1 else labels  # Key change
+        acc = (preds == target_classes).float().mean()
+
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_acc", acc, prog_bar=True)
+        return loss
 
+    def validation_step(self, batch, batch_idx):
+        images, labels = batch
+        logits = self(images)
+        loss = self.criterion(logits, labels)
+
+        # Validation labels are always hard targets - no need for argmax check
+        preds = logits.argmax(dim=1)
+        acc = (preds == labels).float().mean()  # Direct comparison
+
+        self.log("val_loss", loss, prog_bar=False)
+        self.log("val_acc", acc, prog_bar=True)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        images, labels = batch
+        logits = self(images)
+        loss = self.criterion(logits, labels)
+
+        # Test labels are always hard targets
+        preds = logits.argmax(dim=1)
+        acc = (preds == labels).float().mean()  # Direct comparison
+
+        self.log("test_loss", loss, prog_bar=False)
+        self.log("test_acc", acc, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
-        # SIMPLE Adam
-        return optim.Adam(self.parameters(), lr=self.hparams.lr)
-
-# ---------------- Optional Callback(s) ----------------
-
-# models/vision_transformer.py (or a separate callbacks.py file)
-class PrintMetricsCallback(pl.Callback):
-    def on_train_epoch_start(self, trainer, pl_module):
-        self.epoch_start_time = time.time()
-
-    def on_train_epoch_end(self, trainer, pl_module):
-        elapsed = time.time() - self.epoch_start_time
-        epoch_mins = elapsed / 60.0
-        current_epoch = trainer.current_epoch
-        
-        # Now just print training metrics. For example:
-        train_acc = trainer.callback_metrics.get("train_acc")
-        if train_acc is not None:
-            train_acc = float(train_acc) * 100.0
-            print(f"Epoch {current_epoch} finished in {epoch_mins:.2f} min - train_acc: {train_acc:.2f}%")
-        else:
-            print(f"Epoch {current_epoch} finished in {epoch_mins:.2f} min - no train_acc logged")
+        # Create the optimizer with weight decay.
+        optimizer = torch.optim.Adam(
+            self.parameters(),
+            lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay  # <-- weight decay is added here
+        )
+        # Define the cosine annealing scheduler.
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=self.trainer.max_epochs,  # or any desired period
+            eta_min=1e-6
+        )
+        return {"optimizer": optimizer, "lr_scheduler": scheduler}
 
