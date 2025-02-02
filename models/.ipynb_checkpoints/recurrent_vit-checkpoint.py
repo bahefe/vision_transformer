@@ -141,18 +141,12 @@ class LitRecurrentVisionTransformer(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        # Create the optimizer with weight decay.
-        optimizer = torch.optim.Adam(
+        # Just AdamW, no scheduler
+        optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay  # <-- weight decay is added here
+            weight_decay=self.hparams.weight_decay
         )
-        # Define the cosine annealing scheduler.
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=self.trainer.max_epochs,  # or any desired period
-            eta_min=1e-6
-        )
-        return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        return optimizer
 
 

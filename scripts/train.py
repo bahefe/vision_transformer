@@ -103,9 +103,23 @@ def main(args):
     if args.test:
         trainer.test(model, datamodule=dm)
 
-    final_model_path = os.path.join("results", "model_weights.pth")
+    # Build a descriptive filename
+    final_model_filename = (
+        f"{args.model_type}_"
+        f"ed{args.embed_dim}_"
+        f"d{args.depth}_"
+        f"heads{args.num_heads}_"
+        f"lr{args.lr}_"
+        f"bs{args.batch_size}_"
+        f"ep{args.epochs}_"
+        f"wd{args.weight_decay}.pth"
+    )
+    final_model_path = os.path.join("results", final_model_filename)
+    
+    # Save just the underlying nn.Module's state_dict
     torch.save(model.model.state_dict(), final_model_path)
     print(f"\nModel parameters saved to {final_model_path}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -125,7 +139,7 @@ if __name__ == "__main__":
     parser.add_argument("--patch_size", type=int, default=4)
     parser.add_argument("--num_heads", type=int, default=8)
     parser.add_argument("--dropout", type=float, default=0.1)
-    parser.add_argument("--weight_decay", type=float, default=1e-2,
+    parser.add_argument("--weight_decay", type=float, default=0.05,
                         help="Weight decay (L2 regularization factor)")
     parser.add_argument("--test", action="store_true")
     args = parser.parse_args()

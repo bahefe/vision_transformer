@@ -247,24 +247,11 @@ class LitVisionTransformer(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(
+        # Just AdamW, no scheduler
+        optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay
         )
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer,
-            T_0=10,        # initial restart period (in epochs)
-            T_mult=2,      # factor by which the period grows after each restart
-            eta_min=1e-6
-        )
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": "epoch",  # step the scheduler every epoch
-                "frequency": 1
-            }
-        }
-
+        return optimizer
 
