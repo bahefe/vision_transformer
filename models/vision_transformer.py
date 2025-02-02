@@ -255,7 +255,7 @@ class LitVisionTransformer(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer,
             T_0=10,        # initial restart period (in epochs)
-            T_mult=1.5,      # factor by which the period grows after each restart
+            T_mult=2,      # factor by which the period grows after each restart
             eta_min=1e-6
         )
         return {
