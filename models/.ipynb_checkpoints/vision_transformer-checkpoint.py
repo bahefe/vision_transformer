@@ -213,6 +213,9 @@ class LitVisionTransformer(pl.LightningModule):
         target_classes = labels.argmax(dim=1) if labels.dim() > 1 else labels  # Key change
         acc = (preds == target_classes).float().mean()
 
+        current_lr = self.trainer.optimizers[0].param_groups[0]["lr"]
+        self.log("lr", current_lr, prog_bar=True)
+
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_acc", acc, prog_bar=True)
         return loss
@@ -244,17 +247,24 @@ class LitVisionTransformer(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        # Create the optimizer with weight decay.
-        optimizer = torch.optim.Adam(
-            self.parameters(),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay  # <-- weight decay is added here
-        )
-        # Define the cosine annealing scheduler.
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=self.trainer.max_epochs,  # or any desired period
-            eta_min=1e-6
-        )
-        return {"optimizer": optimizer, "lr_scheduler": scheduler}
+    optimizer = torch.optim.Adam(
+        self.parameters(),
+        lr=self.hparams.lr,
+        weight_decay=self.hparams.weight_decay
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer,
+        T_0=10,        # initial restart period (in epochs)
+        T_mult=1.5,      # factor by which the period grows after each restart
+        eta_min=1e-6
+    )
+    return {
+        "optimizer": optimizer,
+        "lr_scheduler": {
+            "scheduler": scheduler,
+            "interval": "epoch",  # step the scheduler every epoch
+            "frequency": 1
+        }
+    }
+
 
