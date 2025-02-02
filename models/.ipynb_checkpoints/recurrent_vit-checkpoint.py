@@ -34,9 +34,10 @@ class RecurrentVisionTransformer(nn.Module):
         num_steps=12,
         num_heads=8,
         hidden_size=1024,
-        dropout=0.1
+        dropout=0.1,
     ):
         super().__init__()
+        
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         num_patches = self.patch_embed.num_patches
         
@@ -85,6 +86,7 @@ class LitRecurrentVisionTransformer(pl.LightningModule):
     def __init__(self, 
                  lr=1e-3,
                  num_steps=12,
+                 weight_decay=0.01,
                  **kwargs):
         super().__init__()
         self.save_hyperparameters()

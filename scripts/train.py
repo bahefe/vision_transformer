@@ -47,6 +47,7 @@ def main(args):
             num_steps=args.depth,
             hidden_size=args.hidden_size,
             dropout=args.dropout,
+            weight_decay=args.weight_decay,
         )
     elif args.model_type == "standard" or args.model_type == "vit_swapped":
         model = LitVisionTransformer(
@@ -56,6 +57,7 @@ def main(args):
             embed_dim=args.embed_dim,
             depth=args.depth,
             dropout=args.dropout,
+            weight_decay=args.weight_decay,
         )
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")

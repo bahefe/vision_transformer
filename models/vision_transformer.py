@@ -181,7 +181,8 @@ class LitVisionTransformer(pl.LightningModule):
                  num_heads=4,
                  hidden_size=1024,  # Changed
                  dropout=0.1,
-                 label_smoothing=0.1):
+                 label_smoothing=0.1,
+                 weight_decay=0.01):
         super().__init__()
         self.save_hyperparameters()
     
