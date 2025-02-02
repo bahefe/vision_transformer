@@ -15,22 +15,120 @@ from models.vision_transformer import LitVisionTransformer
 from models.recurrent_vit import LitRecurrentVisionTransformer
 
 
-
 class SwapEncoderBlocksCallback(pl.Callback):
-    def __init__(self, swap_interval=20):  # Modified
+    """
+    A callback that implements four different swapping/permutation strategies
+    for the encoder blocks in a Vision Transformer.
+
+    1) Strategy 1: Random neighbor swap across all blocks.
+    2) Strategy 2: Full permutation of all blocks.
+    3) Strategy 3: Random neighbor swap, but only among the middle blocks
+       (excluding the first and last).
+    4) Strategy 4: Full permutation, but only among the middle blocks
+       (excluding the first and last).
+    """
+    def __init__(self, swap_interval=20, strategy=1):
+        """
+        :param swap_interval: Perform the swap/permutation every 'swap_interval' epochs.
+        :param strategy: An integer (1, 2, 3, or 4) specifying which strategy to use.
+        """
         super().__init__()
-        self.swap_interval = swap_interval  # Modified
+        self.swap_interval = swap_interval
+        self.strategy = strategy
 
     def on_train_epoch_start(self, trainer, pl_module):
         current_epoch = trainer.current_epoch
-        # Modified condition below
+        
+        # Only run if the epoch > 0 and the epoch is a multiple of swap_interval.
         if self.swap_interval > 0 and current_epoch > 0 and current_epoch % self.swap_interval == 0:
-            if hasattr(pl_module.model, 'blocks') and isinstance(pl_module.model.blocks, nn.ModuleList):
-                blocks = pl_module.model.blocks
-                if len(blocks) >= 2:
-                    idx1, idx2 = random.sample(range(len(blocks)), 2)
-                    blocks[idx1], blocks[idx2] = blocks[idx2], blocks[idx1]
-                    print(f"Epoch {current_epoch}: Swapped encoder blocks {idx1} and {idx2} (interval={self.swap_interval})")
+            if not hasattr(pl_module.model, 'blocks'):
+                return  # No blocks to swap
+            blocks = pl_module.model.blocks
+
+            if not isinstance(blocks, nn.ModuleList):
+                return  # We expect blocks to be an nn.ModuleList
+
+            n = len(blocks)
+            if n < 2:
+                return  # Not enough blocks to swap/permute
+
+            # Decide the strategy
+            if self.strategy == 1:
+                self._strategy_1_swap_all(blocks, current_epoch)
+            elif self.strategy == 2:
+                self._strategy_2_full_permutation(blocks, current_epoch)
+            elif self.strategy == 3:
+                self._strategy_3_swap_middle(blocks, current_epoch)
+            elif self.strategy == 4:
+                self._strategy_4_permute_middle(blocks, current_epoch)
+            else:
+                print(f"[SwapEncoderBlocksCallback] Unknown strategy: {self.strategy}")
+
+    def _strategy_1_swap_all(self, blocks, current_epoch):
+        """
+        Strategy 1: Pick a random index i among [0 .. n-1],
+        and swap it with (i+1) % n.
+        """
+        n = len(blocks)
+        i = random.randint(0, n - 1)
+        j = (i + 1) % n
+        blocks[i], blocks[j] = blocks[j], blocks[i]
+        print(f"Epoch {current_epoch}: Strategy 1 swapped blocks {i} and {j}")
+
+    def _strategy_2_full_permutation(self, blocks, current_epoch):
+        """
+        Strategy 2: Randomly permute ALL blocks at once.
+        """
+        n = len(blocks)
+        indices = list(range(n))
+        random.shuffle(indices)
+        # Reorder blocks in place according to the shuffled indices
+        permuted = [blocks[idx] for idx in indices]
+        for i in range(n):
+            blocks[i] = permuted[i]
+        print(f"Epoch {current_epoch}: Strategy 2 permuted all {n} blocks")
+
+    def _strategy_3_swap_middle(self, blocks, current_epoch):
+        """
+        Strategy 3: Same as strategy 1, but only for the "middle" blocks:
+        i in [1 .. n-2]. If i == n-2, we wrap around to 1.
+        The first and last blocks (index 0 and n-1) stay fixed.
+        """
+        n = len(blocks)
+        if n <= 2:
+            return  # There's no middle to swap if n <= 2
+        i = random.randint(1, n - 2)
+        # The next index would be i+1, but if i == n-2, we wrap to 1
+        if i == (n - 2):
+            j = 1
+        else:
+            j = i + 1
+        blocks[i], blocks[j] = blocks[j], blocks[i]
+        print(f"Epoch {current_epoch}: Strategy 3 swapped middle blocks {i} and {j}")
+
+    def _strategy_4_permute_middle(self, blocks, current_epoch):
+        """
+        Strategy 4: Randomly permute only the middle blocks [1 .. n-2],
+        keeping the first block (index 0) and last block (index n-1) in place.
+        """
+        n = len(blocks)
+        if n <= 2:
+            return  # No middle blocks to permute
+        middle_indices = list(range(1, n - 1))
+        random.shuffle(middle_indices)
+        # Extract the middle blocks
+        middle_blocks = [blocks[idx] for idx in range(1, n - 1)]
+        # Now reorder them according to middle_indices
+        permuted = [None] * len(middle_blocks)
+        for k, idx in enumerate(middle_indices):
+            permuted[k] = blocks[idx]
+
+        # Put them back
+        for k, idx in enumerate(range(1, n - 1)):
+            blocks[idx] = permuted[k]
+
+        print(f"Epoch {current_epoch}: Strategy 4 permuted middle blocks (1..{n-2})")
+
 
 def main(args):
     dm = CIFAR10DataModule(
@@ -77,8 +175,12 @@ def main(args):
     ]
 
     if args.model_type == "vit_swapped":
-        # Modified line below to pass swap_interval
-        callbacks.append(SwapEncoderBlocksCallback(swap_interval=args.swap_interval))
+        callbacks.append(
+            SwapEncoderBlocksCallback(
+                swap_interval=args.swap_interval, 
+                strategy=args.swap_strategy
+            )
+        )
 
     if torch.backends.mps.is_available():
         accelerator = "mps"
@@ -112,8 +214,13 @@ def main(args):
         f"lr{args.lr}_"
         f"bs{args.batch_size}_"
         f"ep{args.epochs}_"
-        f"wd{args.weight_decay}.pth"
+        f"wd{args.weight_decay}"
     )
+    # Append swap_interval and swap_strategy if using the swapped model
+    if args.model_type == "vit_swapped":
+        final_model_filename += f"_si{args.swap_interval}_ss{args.swap_strategy}"
+    final_model_filename += ".pth"
+
     final_model_path = os.path.join("results", final_model_filename)
     
     # Save just the underlying nn.Module's state_dict
@@ -125,10 +232,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # New argument added here
     parser.add_argument("--swap_interval", type=int, default=20,
-                       help="Swap encoder blocks every N epochs (for 'vit_swapped')")
+                        help="Swap encoder blocks every N epochs (for 'vit_swapped')")
+    parser.add_argument("--swap_strategy", type=int, default=1, choices=[1, 2, 3, 4],
+                        help="Swapping strategy. 1=Neighbor swap (all), 2=Full permutation (all), 3=Neighbor swap (middle only), 4=Permutation (middle only).")
     parser.add_argument("--val_split", type=float, default=0.1)
     parser.add_argument("--model_type", type=str, default="standard",
-                       choices=["standard", "recurrent", "vit_swapped"])
+                        choices=["standard", "recurrent", "vit_swapped"])
     parser.add_argument("--hidden_size", type=int, default=1024)
     parser.add_argument("--data_dir", type=str, default="./data")
     parser.add_argument("--batch_size", type=int, default=512)

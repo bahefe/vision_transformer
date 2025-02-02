@@ -84,15 +84,6 @@ class PatchEmbedding(nn.Module):
         return x
 
 
-def sinusoidal_positional_encoding(seq_len, embed_dim):
-    position = torch.arange(seq_len).unsqueeze(1)  
-    div_term = torch.exp(torch.arange(0, embed_dim, 2) * (-math.log(10000.0) / embed_dim))
-
-    pos_embed = torch.zeros(seq_len, embed_dim)
-    pos_embed[:, 0::2] = torch.sin(position * div_term)
-    pos_embed[:, 1::2] = torch.cos(position * div_term)
-
-    return pos_embed.unsqueeze(0)  # [1, seq_len, embed_dim]
 
 
 class VisionTransformer(nn.Module):

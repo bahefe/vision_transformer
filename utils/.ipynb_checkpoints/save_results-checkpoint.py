@@ -19,7 +19,14 @@ class SaveJSONCallback(pl.Callback):
         num_heads = pl_module.hparams.get("num_heads", "unknown")
         timestamp = time.strftime("%Y%m%d-%H%M%S")
 
-        file_name = f"{model_name}_ed{embed_dim}_heads{num_heads}_{timestamp}.json"
+        # If using the swapped model, append the swap_interval and swap_strategy to the filename
+        if model_name == "vit_swapped":
+            swap_interval = pl_module.hparams.get("swap_interval", "unknown")
+            swap_strategy = pl_module.hparams.get("swap_strategy", "unknown")
+            file_name = f"{model_name}_ed{embed_dim}_heads{num_heads}_si{swap_interval}_ss{swap_strategy}_{timestamp}.json"
+        else:
+            file_name = f"{model_name}_ed{embed_dim}_heads{num_heads}_{timestamp}.json"
+
         self.save_path = os.path.join(self.output_dir, file_name)
 
     def on_train_epoch_start(self, trainer, pl_module):
@@ -72,6 +79,3 @@ class SaveJSONCallback(pl.Callback):
         with open(self.save_path, "w") as f:
             json.dump(results, f, indent=4)
         print(f"[SaveJSONCallback] Results saved to {self.save_path}")
-       
-
-       
