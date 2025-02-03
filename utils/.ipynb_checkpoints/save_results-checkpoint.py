@@ -68,12 +68,19 @@ class SaveJSONCallback(pl.Callback):
         test_acc = trainer.callback_metrics.get("test_acc")
         test_acc = float(test_acc) * 100.0 if test_acc else None
 
+        # Gather swap events from any callback that has a 'swap_events' attribute.
+        swap_events = []
+        for cb in trainer.callbacks:
+            if hasattr(cb, "swap_events"):
+                swap_events.extend(cb.swap_events)
+        
         # Prepare final results
         results = {
             "hyperparameters": dict(pl_module.hparams),  # Save all hyperparameters
             "epochs": self.epoch_data,
             "final_test_loss": float(test_loss) if test_loss else None,
             "final_test_acc": test_acc,
+            "swap_events": swap_events,  # Add swap events (if any)
         }
 
         with open(self.save_path, "w") as f:

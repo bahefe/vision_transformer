@@ -5,7 +5,6 @@ from utils.save_results import SaveJSONCallback
 from data.data_module import CIFAR10DataModule
 from models.vision_transformer import LitVisionTransformer
 from pytorch_lightning.callbacks import ModelCheckpoint
-import argparse
 import json
 import os
 from pytorch_lightning.callbacks import LearningRateMonitor
@@ -18,27 +17,35 @@ from models.recurrent_vit import LitRecurrentVisionTransformer
 class SwapEncoderBlocksCallback(pl.Callback):
     """
     A callback that implements four different swapping/permutation strategies
-    for the encoder blocks in a Vision Transformer.
+    for the encoder blocks in a Vision Transformer and saves swap details.
 
-    1) Strategy 1: Random neighbor swap across all blocks.
-    2) Strategy 2: Full permutation of all blocks.
-    3) Strategy 3: Random neighbor swap, but only among the middle blocks
-       (excluding the first and last).
-    4) Strategy 4: Full permutation, but only among the middle blocks
-       (excluding the first and last).
+    Strategies:
+      1) Strategy 1: Random neighbor swap across all blocks.
+         - Logs the two swapped indices.
+      2) Strategy 2: Full permutation of all blocks.
+         - Logs the new order as a list of indices.
+      3) Strategy 3: Random neighbor swap, but only among the middle blocks
+         (excluding the first and last).
+         - Logs the two swapped indices.
+      4) Strategy 4: Full permutation, but only among the middle blocks
+         (excluding the first and last).
+         - Logs the new order (of the middle block indices).
     """
-    def __init__(self, swap_interval=20, strategy=1):
+    def __init__(self, swap_interval=20, strategy=1, log_file="swap_log.json"):
         """
         :param swap_interval: Perform the swap/permutation every 'swap_interval' epochs.
         :param strategy: An integer (1, 2, 3, or 4) specifying which strategy to use.
+        :param log_file: File name where swap events will be saved at training end.
         """
         super().__init__()
         self.swap_interval = swap_interval
         self.strategy = strategy
+        self.log_file = log_file
+        self.swap_events = []  # List to record swap events
 
     def on_train_epoch_start(self, trainer, pl_module):
         current_epoch = trainer.current_epoch
-        
+
         # Only run if the epoch > 0 and the epoch is a multiple of swap_interval.
         if self.swap_interval > 0 and current_epoch > 0 and current_epoch % self.swap_interval == 0:
             if not hasattr(pl_module.model, 'blocks'):
@@ -73,7 +80,13 @@ class SwapEncoderBlocksCallback(pl.Callback):
         i = random.randint(0, n - 1)
         j = (i + 1) % n
         blocks[i], blocks[j] = blocks[j], blocks[i]
-        print(f"Epoch {current_epoch}: Strategy 1 swapped blocks {i} and {j}")
+        msg = f"Epoch {current_epoch}: Strategy 1 swapped blocks {i} and {j}"
+        print(msg)
+        self.swap_events.append({
+            "epoch": current_epoch,
+            "strategy": 1,
+            "swapped": [i, j]
+        })
 
     def _strategy_2_full_permutation(self, blocks, current_epoch):
         """
@@ -86,7 +99,13 @@ class SwapEncoderBlocksCallback(pl.Callback):
         permuted = [blocks[idx] for idx in indices]
         for i in range(n):
             blocks[i] = permuted[i]
-        print(f"Epoch {current_epoch}: Strategy 2 permuted all {n} blocks")
+        msg = f"Epoch {current_epoch}: Strategy 2 permuted all {n} blocks. New order: {indices}"
+        print(msg)
+        self.swap_events.append({
+            "epoch": current_epoch,
+            "strategy": 2,
+            "new_order": indices
+        })
 
     def _strategy_3_swap_middle(self, blocks, current_epoch):
         """
@@ -104,7 +123,13 @@ class SwapEncoderBlocksCallback(pl.Callback):
         else:
             j = i + 1
         blocks[i], blocks[j] = blocks[j], blocks[i]
-        print(f"Epoch {current_epoch}: Strategy 3 swapped middle blocks {i} and {j}")
+        msg = f"Epoch {current_epoch}: Strategy 3 swapped middle blocks {i} and {j}"
+        print(msg)
+        self.swap_events.append({
+            "epoch": current_epoch,
+            "strategy": 3,
+            "swapped": [i, j]
+        })
 
     def _strategy_4_permute_middle(self, blocks, current_epoch):
         """
@@ -122,12 +147,25 @@ class SwapEncoderBlocksCallback(pl.Callback):
         permuted = [None] * len(middle_blocks)
         for k, idx in enumerate(middle_indices):
             permuted[k] = blocks[idx]
-
-        # Put them back
+        # Put them back into blocks
         for k, idx in enumerate(range(1, n - 1)):
             blocks[idx] = permuted[k]
+        msg = f"Epoch {current_epoch}: Strategy 4 permuted middle blocks (1..{n-2}). New order: {middle_indices}"
+        print(msg)
+        self.swap_events.append({
+            "epoch": current_epoch,
+            "strategy": 4,
+            "new_order": middle_indices
+        })
 
-        print(f"Epoch {current_epoch}: Strategy 4 permuted middle blocks (1..{n-2})")
+    def on_train_end(self, trainer, pl_module):
+        # Save the swap events to a file in the results directory.
+        log_dir = "results"
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, self.log_file)
+        with open(log_path, "w") as f:
+            json.dump(self.swap_events, f, indent=4)
+        print(f"Swap events saved to {log_path}")
 
 
 def main(args):
@@ -147,7 +185,7 @@ def main(args):
             dropout=args.dropout,
             weight_decay=args.weight_decay,
         )
-    elif args.model_type == "standard" or args.model_type == "vit_swapped":
+    elif args.model_type in ["standard", "vit_swapped"]:
         model = LitVisionTransformer(
             lr=args.lr,
             patch_size=args.patch_size,
@@ -230,7 +268,6 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # New argument added here
     parser.add_argument("--swap_interval", type=int, default=20,
                         help="Swap encoder blocks every N epochs (for 'vit_swapped')")
     parser.add_argument("--swap_strategy", type=int, default=1, choices=[1, 2, 3, 4],
