@@ -8,7 +8,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # Define the swap strategies and swap intervals to test.
 strategies = [1, 2, 3, 4]
-swap_intervals = [10, 5, 2, 1]
+swap_intervals = [0.25, 0.10]
 
 # Additional common arguments for train.py.
 common_args = (
