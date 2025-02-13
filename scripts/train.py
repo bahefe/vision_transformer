@@ -12,7 +12,7 @@ import random
 import torch.nn as nn
 from models.vision_transformer import LitVisionTransformer
 from models.recurrent_vit import LitRecurrentVisionTransformer
-
+from models.recurrent_state_vit import LitRecurrentVisionTransformerWithState  # New import
 
 class SwapEncoderBlocksCallback(pl.Callback):
     def __init__(self, swap_interval=0.25, strategy=1, log_file="swap_log.json"):
@@ -123,13 +123,24 @@ def main(args):
         batch_size=args.batch_size
     )
 
-    if args.model_type == "recurrent":
+    if args.model_type == "recurrent_state":
+        model = LitRecurrentVisionTransformerWithState(
+            lr=args.lr,
+            patch_size=args.patch_size,
+            num_heads=args.num_heads,
+            embed_dim=args.embed_dim,
+            num_steps=args.depth,  # using 'depth' as the number of recurrent steps
+            hidden_size=args.hidden_size,
+            dropout=args.dropout,
+            weight_decay=args.weight_decay,
+        )
+    elif args.model_type == "recurrent":
         model = LitRecurrentVisionTransformer(
             lr=args.lr,
             patch_size=args.patch_size,
             num_heads=args.num_heads,
             embed_dim=args.embed_dim,
-            num_steps=args.depth,
+            num_steps=args.depth,  # using 'depth' as the number of recurrent steps
             hidden_size=args.hidden_size,
             dropout=args.dropout,
             weight_decay=args.weight_decay,
@@ -218,12 +229,13 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--swap_interval", type=float, default=0.25,
-                    help="Swap interval in epochs (can be fractional, e.g., 0.25 for every quarter epoch)")
+                        help="Swap interval in epochs (can be fractional, e.g., 0.25 for every quarter epoch)")
     parser.add_argument("--swap_strategy", type=int, default=1, choices=[1, 2, 3, 4],
                         help="Swapping strategy. 1=Neighbor swap (all), 2=Full permutation (all), 3=Neighbor swap (middle only), 4=Permutation (middle only).")
     parser.add_argument("--val_split", type=float, default=0.1)
+    # Updated model_type choices to include 'recurrent_state'
     parser.add_argument("--model_type", type=str, default="standard",
-                        choices=["standard", "recurrent", "vit_swapped"])
+                        choices=["standard", "recurrent", "recurrent_state", "vit_swapped"])
     parser.add_argument("--hidden_size", type=int, default=1024)
     parser.add_argument("--data_dir", type=str, default="./data")
     parser.add_argument("--batch_size", type=int, default=512)
