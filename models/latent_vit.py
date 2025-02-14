@@ -12,9 +12,10 @@ class LatentSpaceVisionTransformer(nn.Module):
     positional embeddings, and then processes them through:
     
     1. An initial transformer block.
-    2. Several recurrent steps where, in each iteration, the original patch
-       embeddings are injected (added) into the current state (for patch tokens),
-       then processed with a recurrent block.
+    2. Several recurrent steps (default 10) where, in each iteration, the original 
+       patch embeddings are injected (added) into the current state (for patch tokens),
+       then processed with a recurrent block. The recurrent block uses an inflated 
+       MLP hidden dimension (default 14800) so that its parameter count fills the budget.
     3. A final transformer block, followed by layer normalization and a 
        classification head.
     """
@@ -25,9 +26,10 @@ class LatentSpaceVisionTransformer(nn.Module):
         in_channels=3,
         num_classes=10,
         embed_dim=256,
-        depth_recurrent=5,  # Number of recurrent iterations
-        num_heads=4,
-        hidden_size=1024,
+        depth_recurrent=10,            # Increased to 10 recurrent iterations
+        num_heads=8,
+        hidden_size=1024,              # For initial and final blocks
+        recurrent_hidden_size=14800,   # For the recurrent block (inflated)
         dropout=0.1
     ):
         super().__init__()
@@ -39,7 +41,7 @@ class LatentSpaceVisionTransformer(nn.Module):
         
         # 2. Transformer blocks
         self.initial_block = TransformerEncoderBlock(embed_dim, num_heads, hidden_size, dropout)
-        self.recurrent_block = TransformerEncoderBlock(embed_dim, num_heads, hidden_size, dropout)
+        self.recurrent_block = TransformerEncoderBlock(embed_dim, num_heads, recurrent_hidden_size, dropout)
         self.final_block = TransformerEncoderBlock(embed_dim, num_heads, hidden_size, dropout)
         
         # 3. Classification head
@@ -95,9 +97,9 @@ class LitLatentSpaceVisionTransformer(pl.LightningModule):
     PyTorch Lightning module for the Latent Space Vision Transformer.
     """
     def __init__(self, 
-                 lr=1e-3,
-                 depth_recurrent=5,
-                 weight_decay=0.01,
+                 lr=0.0001,               # Updated default learning rate
+                 depth_recurrent=10,      # Use 10 recurrent iterations
+                 weight_decay=0.05,
                  **kwargs):
         super().__init__()
         self.save_hyperparameters()
