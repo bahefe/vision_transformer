@@ -7,13 +7,14 @@ from .vision_transformer import MultiHeadSelfAttention, PatchEmbedding
 class RecurrentTransformerEncoderWithState(nn.Module):
     """
     A recurrent transformer block that updates a hidden state 'h' given
-    a constant input 'x'. Here we simply combine them via addition and
-    then apply a self-attention block and an MLP with residual connections.
+    a constant input 'x'. This version includes two LayerNorm layers:
+    one before the self-attention and one before the MLP.
     """
     def __init__(self, embed_dim, num_heads, hidden_size, dropout=0.1):
         super().__init__()
-        self.norm = nn.LayerNorm(embed_dim)
+        self.norm1 = nn.LayerNorm(embed_dim)  # Normalization before self-attention
         self.attn = MultiHeadSelfAttention(embed_dim, num_heads, dropout)
+        self.norm2 = nn.LayerNorm(embed_dim)  # Normalization before the MLP
         self.mlp = nn.Sequential(
             nn.Linear(embed_dim, hidden_size),
             nn.GELU(),
@@ -27,18 +28,19 @@ class RecurrentTransformerEncoderWithState(nn.Module):
         x: constant input (B, N, D)
         h: previous hidden state (B, N, D)
         """
-        # Combine constant input and hidden state (you can try other merge methods)
+        # Combine constant input and previous hidden state.
         combined = h + x
 
-        # Apply attention (using self-attention on the combined representation)
-        attn_out = self.attn(self.norm(combined))
+        # Apply self-attention with normalization from norm1.
+        attn_out = self.attn(self.norm1(combined))
         h_new = combined + attn_out
 
-        # Apply MLP with residual connection
-        mlp_out = self.mlp(self.norm(h_new))
+        # Apply MLP with normalization from norm2.
+        mlp_out = self.mlp(self.norm2(h_new))
         h_new = h_new + mlp_out
 
         return h_new
+
 
 class RecurrentVisionTransformerWithState(nn.Module):
     """
