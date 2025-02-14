@@ -154,6 +154,7 @@ def main(args):
             embed_dim=args.embed_dim,
             depth_recurrent=args.depth,  # using 'depth' as the number of recurrent iterations
             hidden_size=args.hidden_size,
+            recurrent_hidden_size=args.recurrent_hidden_size,  # New parameter passed here
             dropout=args.dropout,
             weight_decay=args.weight_decay,
         )
@@ -249,6 +250,8 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", type=str, default="standard",
                         choices=["standard", "recurrent", "recurrent_state", "vit_swapped", "latent_space"])
     parser.add_argument("--hidden_size", type=int, default=1024)
+    parser.add_argument("--recurrent_hidden_size", type=int, default=14800,
+                        help="Hidden size for the recurrent block (inflated MLP dimension)")
     parser.add_argument("--data_dir", type=str, default="./data")
     parser.add_argument("--batch_size", type=int, default=512)
     parser.add_argument("--epochs", type=int, default=10)
