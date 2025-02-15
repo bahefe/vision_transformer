@@ -15,26 +15,32 @@ class SaveJSONCallback(pl.Callback):
 
     def on_fit_start(self, trainer, pl_module):
         os.makedirs(self.output_dir, exist_ok=True)
-        if self.base_filename is None:
-            # Fallback filename generation using model's hparams
-            hparams = pl_module.hparams
-            model_type = hparams.get("model_type", "model")
-            base = (
-                f"{model_type}_"
-                f"ed{hparams.embed_dim}_"
-                f"d{hparams.depth}_"
-                f"heads{hparams.num_heads}_"
-                f"hs{hparams.hidden_size}_"
-                f"bs{hparams.batch_size}_"
-                f"ep{hparams.epochs}"
-            )
-            if model_type == "vit_swapped":
-                base += f"_si{hparams.swap_interval}_ss{hparams.swap_strategy}"
-            base += f"_{time.strftime('%Y%m%d-%H%M%S')}"
-            self.base_filename = base
-            
+        hparams = pl_module.hparams
+        # Try to retrieve 'depth'; if not present, check for alternatives.
+        depth = getattr(hparams, "depth", None)
+        if depth is None:
+            depth = getattr(hparams, "num_steps", None)
+        if depth is None:
+            depth = getattr(hparams, "depth_recurrent", None)
+        if depth is None:
+            depth = "unknown"
+
+        model_type = hparams.get("model_type", "model")
+        base = (
+            f"{model_type}_"
+            f"ed{hparams.embed_dim}_"
+            f"d{depth}_"
+            f"heads{hparams.num_heads}_"
+            f"hs{hparams.hidden_size}_"
+            f"bs{hparams.batch_size}_"
+            f"ep{hparams.epochs}"
+        )
+        if model_type == "vit_swapped":
+            base += f"_si{hparams.swap_interval}_ss{hparams.swap_strategy}"
+        base += f"_{time.strftime('%Y%m%d-%H%M%S')}"
+        self.base_filename = base
         self.save_path = os.path.join(self.output_dir, f"{self.base_filename}.json")
-        self.save_path = os.path.join(self.output_dir, f"{self.base_filename}.json")
+
 
     def on_train_epoch_start(self, trainer, pl_module):
         self.epoch_start_time = time.time()
