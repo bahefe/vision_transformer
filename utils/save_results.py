@@ -16,30 +16,25 @@ class SaveJSONCallback(pl.Callback):
     def on_fit_start(self, trainer, pl_module):
         os.makedirs(self.output_dir, exist_ok=True)
         hparams = pl_module.hparams
-        # Try to retrieve 'depth'; if not present, check for alternatives.
-        depth = getattr(hparams, "depth", None)
-        if depth is None:
-            depth = getattr(hparams, "num_steps", None)
-        if depth is None:
-            depth = getattr(hparams, "depth_recurrent", None)
-        if depth is None:
-            depth = "unknown"
-
         model_type = hparams.get("model_type", "model")
+        # Try to retrieve batch_size; if not present, set to "unknown"
+        batch_size = getattr(hparams, "batch_size", "unknown")
         base = (
             f"{model_type}_"
             f"ed{hparams.embed_dim}_"
-            f"d{depth}_"
+            f"d{getattr(hparams, 'depth', getattr(hparams, 'num_steps', getattr(hparams, 'depth_recurrent', 'unknown')))}_"
             f"heads{hparams.num_heads}_"
             f"hs{hparams.hidden_size}_"
-            f"bs{hparams.batch_size}_"
-            f"ep{hparams.epochs}"
+            f"bs{batch_size}_"
+            f"ep{hparams.epochs}_"
+            f"wd{hparams.weight_decay}"
         )
         if model_type == "vit_swapped":
             base += f"_si{hparams.swap_interval}_ss{hparams.swap_strategy}"
         base += f"_{time.strftime('%Y%m%d-%H%M%S')}"
         self.base_filename = base
         self.save_path = os.path.join(self.output_dir, f"{self.base_filename}.json")
+
 
 
     def on_train_epoch_start(self, trainer, pl_module):
