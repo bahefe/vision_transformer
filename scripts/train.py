@@ -5,15 +5,15 @@ from utils.save_results import SaveJSONCallback
 from data.data_module import CIFAR10DataModule
 from models.vision_transformer import LitVisionTransformer
 import json
-import os
 from pytorch_lightning.callbacks import LearningRateMonitor
 import random
 import torch.nn as nn
 from models.vision_transformer import LitVisionTransformer
-from models.recurrent_vit import LitRecurrentVisionTransformer
 from models.recurrent_state_vit import LitRecurrentVisionTransformerWithState
-from models.latent_space_vit import LitLatentSpaceVisionTransformer  # New import
+from models.latent_space_vit import LitLatentSpaceVisionTransformer  
 from utils.swap_helpers import SwapEncoderBlocksCallback
+import os
+from datetime import datetime
 
 
 def main(args):
@@ -33,17 +33,7 @@ def main(args):
             dropout=args.dropout,
             weight_decay=args.weight_decay,
         )
-    elif args.model_type == "recurrent":
-        model = LitRecurrentVisionTransformer(
-            lr=args.lr,
-            patch_size=args.patch_size,
-            num_heads=args.num_heads,
-            embed_dim=args.embed_dim,
-            num_steps=args.depth,  # using 'depth' as the number of recurrent steps
-            hidden_size=args.hidden_size,
-            dropout=args.dropout,
-            weight_decay=args.weight_decay,
-        )
+    
     elif args.model_type == "latent_space":
         model = LitLatentSpaceVisionTransformer(
             lr=args.lr,
@@ -110,7 +100,7 @@ def main(args):
     if args.test:
         trainer.test(model, datamodule=dm)
 
-    # Build a descriptive filename for saving the model.
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     final_model_filename = (
         f"{args.model_type}_"
         f"ed{args.embed_dim}_"
@@ -119,16 +109,17 @@ def main(args):
         f"lr{args.lr}_"
         f"bs{args.batch_size}_"
         f"ep{args.epochs}_"
-        f"wd{args.weight_decay}"
+        f"wd{args.weight_decay}_"
+        f"{timestamp}"
     )
-    # Append swap_interval and swap_strategy if using the swapped model.
+    
+    
     if args.model_type == "vit_swapped":
         final_model_filename += f"_si{args.swap_interval}_ss{args.swap_strategy}"
     final_model_filename += ".pth"
 
     final_model_path = os.path.join("results", final_model_filename)
     
-    # Save the underlying nn.Module's state_dict.
     torch.save(model.model.state_dict(), final_model_path)
     print(f"\nModel parameters saved to {final_model_path}")
 
@@ -139,10 +130,8 @@ if __name__ == "__main__":
                         help="Swap interval in epochs (can be fractional, e.g., 0.25 for every quarter epoch)")
     parser.add_argument("--swap_strategy", type=int, default=1, choices=[1, 2, 3, 4],
                         help="Swapping strategy. 1=Neighbor swap (all), 2=Full permutation (all), 3=Neighbor swap (middle only), 4=Permutation (middle only).")
-    parser.add_argument("--val_split", type=float, default=0.1)
-    # Updated model_type choices to include 'latent_space'
     parser.add_argument("--model_type", type=str, default="standard",
-                        choices=["standard", "recurrent", "recurrent_state", "vit_swapped", "latent_space"])
+                        choices=["standard", "recurrent_state", "vit_swapped", "latent_space"])
     parser.add_argument("--hidden_size", type=int, default=1024)
     parser.add_argument("--recurrent_hidden_size", type=int, default=14800,
                         help="Hidden size for the recurrent block (inflated MLP dimension)")

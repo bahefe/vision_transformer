@@ -3,6 +3,7 @@ import json
 import torch
 import pytorch_lightning as pl
 import os
+from datetime import datetime
 
 class SaveJSONCallback(pl.Callback):
     def __init__(self, output_dir="results", base_filename=None):
@@ -14,31 +15,38 @@ class SaveJSONCallback(pl.Callback):
         self.epoch_start_time = None
 
     def on_fit_start(self, trainer, pl_module):
+        # Ensure the output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Generate a timestamp in the format YYYYMMDD_HHMMSS
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Build the base filename from hyperparameters, mirroring the model state dict's naming
         hparams = pl_module.hparams
-        model_type = hparams.get("model_type", "model")
-        batch_size = getattr(hparams, "batch_size", "unknown")
-        # Retrieve max_epochs from the trainer
-        max_epochs = trainer.max_epochs
-        base = (
-            f"{model_type}_"
+        base_filename = (
+            f"{hparams.model_type}_"
             f"ed{hparams.embed_dim}_"
-            f"d{getattr(hparams, 'depth', getattr(hparams, 'num_steps', getattr(hparams, 'depth_recurrent', 'unknown')))}_"
+            f"d{hparams.depth}_"
             f"heads{hparams.num_heads}_"
-            f"hs{hparams.hidden_size}_"
-            f"bs{batch_size}_"
-            # Use max_epochs from trainer instead of hparams
-            f"ep{max_epochs}_"
-            f"wd{hparams.weight_decay}"
+            f"lr{hparams.lr}_"
+            f"bs{hparams.batch_size}_"
+            f"ep{hparams.epochs}_"
+            f"wd{hparams.weight_decay}_"
+            f"{timestamp}"
         )
-        if model_type == "vit_swapped":
-            base += f"_si{hparams.swap_interval}_ss{hparams.swap_strategy}"
-        base += f"_{time.strftime('%Y%m%d-%H%M%S')}"
-        self.base_filename = base
-        self.save_path = os.path.join(self.output_dir, f"{self.base_filename}.json")
-
-   
-
+        
+        # Append swap_interval and swap_strategy if using the swapped model
+        if hparams.model_type == "vit_swapped":
+            base_filename += f"_si{hparams.swap_interval}_ss{hparams.swap_strategy}"
+        
+        # Create a JSON file using the same base filename (without a .pth extension)
+        final_filename = base_filename + ".json"
+        self.save_path = os.path.join(self.output_dir, final_filename)
+        
+        # Create an initial (empty) JSON file.
+        with open(self.save_path, "w") as f:
+            json.dump({}, f, indent=4)
+        print(f"[SaveJSONCallback] JSON file created at {self.save_path}")
 
     def on_train_epoch_start(self, trainer, pl_module):
         self.epoch_start_time = time.time()
@@ -51,12 +59,12 @@ class SaveJSONCallback(pl.Callback):
         # Get training metrics
         train_loss = trainer.callback_metrics.get("train_loss")
         train_acc = trainer.callback_metrics.get("train_acc")
-        train_acc = float(train_acc) * 100.0 if train_acc else None
+        train_acc = float(train_acc) * 100.0 if train_acc is not None else None
 
         # Create new epoch entry with training data
         self.epoch_data.append({
             "epoch": current_epoch,
-            "train_loss": float(train_loss) if train_loss else None,
+            "train_loss": float(train_loss) if train_loss is not None else None,
             "train_acc": train_acc,
             "time_minutes": round(epoch_mins, 3),
             "val_loss": None,  # Initialize validation metrics
@@ -77,7 +85,7 @@ class SaveJSONCallback(pl.Callback):
         # Get final test metrics
         test_loss = trainer.callback_metrics.get("test_loss")
         test_acc = trainer.callback_metrics.get("test_acc")
-        test_acc = float(test_acc) * 100.0 if test_acc else None
+        test_acc = float(test_acc) * 100.0 if test_acc is not None else None
 
         # Gather swap events from any callback that has a 'swap_events' attribute.
         swap_events = []
@@ -89,7 +97,7 @@ class SaveJSONCallback(pl.Callback):
         results = {
             "hyperparameters": dict(pl_module.hparams),  # Save all hyperparameters
             "epochs": self.epoch_data,
-            "final_test_loss": float(test_loss) if test_loss else None,
+            "final_test_loss": float(test_loss) if test_loss is not None else None,
             "final_test_acc": test_acc,
             "swap_events": swap_events,  # Add swap events (if any)
         }

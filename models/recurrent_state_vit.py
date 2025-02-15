@@ -12,9 +12,9 @@ class RecurrentTransformerEncoderWithState(nn.Module):
     """
     def __init__(self, embed_dim, num_heads, hidden_size, dropout=0.1):
         super().__init__()
-        self.norm1 = nn.LayerNorm(embed_dim)  # Normalization before self-attention
+        self.norm1 = nn.LayerNorm(embed_dim)  
         self.attn = MultiHeadSelfAttention(embed_dim, num_heads, dropout)
-        self.norm2 = nn.LayerNorm(embed_dim)  # Normalization before the MLP
+        self.norm2 = nn.LayerNorm(embed_dim)  
         self.mlp = nn.Sequential(
             nn.Linear(embed_dim, hidden_size),
             nn.GELU(),
@@ -28,14 +28,12 @@ class RecurrentTransformerEncoderWithState(nn.Module):
         x: constant input (B, N, D)
         h: previous hidden state (B, N, D)
         """
-        # Combine constant input and previous hidden state.
+        
         combined = h + x
-
-        # Apply self-attention with normalization from norm1.
+        
         attn_out = self.attn(self.norm1(combined))
         h_new = combined + attn_out
-
-        # Apply MLP with normalization from norm2.
+        
         mlp_out = self.mlp(self.norm2(h_new))
         h_new = h_new + mlp_out
 
@@ -43,10 +41,6 @@ class RecurrentTransformerEncoderWithState(nn.Module):
 
 
 class RecurrentVisionTransformerWithState(nn.Module):
-    """
-    Vision Transformer that, instead of re-feeding its output into the same block,
-    maintains a separate hidden state that gets updated at each recurrent step.
-    """
     def __init__(
         self,
         img_size=32,
@@ -64,11 +58,11 @@ class RecurrentVisionTransformerWithState(nn.Module):
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         num_patches = self.patch_embed.num_patches
         
-        # Special token and positional embedding
+        
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
         
-        # Recurrent block with explicit hidden state update
+        
         self.recurrent_layer = RecurrentTransformerEncoderWithState(
             embed_dim, num_heads, hidden_size, dropout
         )
@@ -90,29 +84,30 @@ class RecurrentVisionTransformerWithState(nn.Module):
         """
         x: image tensor of shape (B, C, H, W)
         """
-        # 1. Embed image patches
+        
         x = self.patch_embed(x)  # (B, num_patches, embed_dim)
         B, N, D = x.shape
         
-        # 2. Concatenate class token and add positional embeddings
+        
         cls_tokens = self.cls_token.expand(B, -1, -1)  # (B, 1, D)
         x = torch.cat((cls_tokens, x), dim=1)           # (B, num_patches+1, D)
         x = x + self.pos_embed
 
-        # 3. Initialize the hidden state.
-        #    Here, we initialize the hidden state as the embedded input.
-        #    (Alternatively, you might initialize h as zeros or a learned parameter.)
+        
+        # Here, we initialize the hidden state as the embedded input.
+        # Alternatively, you might initialize h as zeros or a learned parameter.
         h = x
 
-        # 4. Recurrently update the hidden state while providing the constant input x.
+       
         for _ in range(self.num_steps):
             h = self.recurrent_layer(x, h)
 
-        # 5. Final classification head (using the class token from the updated state)
+        
         h = self.norm(h)
-        cls_token_final = h[:, 0]  # Use the class token
+        cls_token_final = h[:, 0]  
         logits = self.head(cls_token_final)
         return logits
+    
 
 class LitRecurrentVisionTransformerWithState(pl.LightningModule):
     def __init__(self, 
