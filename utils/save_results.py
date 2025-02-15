@@ -5,29 +5,36 @@ import pytorch_lightning as pl
 import os
 
 class SaveJSONCallback(pl.Callback):
-    def __init__(self, output_dir="results"):
+    def __init__(self, output_dir="results", base_filename=None):
         super().__init__()
         self.output_dir = output_dir
+        self.base_filename = base_filename
         self.epoch_data = []
-        self.save_path = None  # We'll define it later
+        self.save_path = None
         self.epoch_start_time = None
 
     def on_fit_start(self, trainer, pl_module):
-        # Generate a dynamic filename at the start of training
-        model_name = pl_module.hparams.get("model_name", "model")
-        embed_dim = pl_module.hparams.get("embed_dim", "unknown")
-        num_heads = pl_module.hparams.get("num_heads", "unknown")
-        timestamp = time.strftime("%Y%m%d-%H%M%S")
-
-        # If using the swapped model, append the swap_interval and swap_strategy to the filename
-        if model_name == "vit_swapped":
-            swap_interval = pl_module.hparams.get("swap_interval", "unknown")
-            swap_strategy = pl_module.hparams.get("swap_strategy", "unknown")
-            file_name = f"{model_name}_ed{embed_dim}_heads{num_heads}_si{swap_interval}_ss{swap_strategy}_{timestamp}.json"
-        else:
-            file_name = f"{model_name}_ed{embed_dim}_heads{num_heads}_{timestamp}.json"
-
-        self.save_path = os.path.join(self.output_dir, file_name)
+        os.makedirs(self.output_dir, exist_ok=True)
+        if self.base_filename is None:
+            # Fallback filename generation using model's hparams
+            hparams = pl_module.hparams
+            model_type = hparams.get("model_type", "model")
+            base = (
+                f"{model_type}_"
+                f"ed{hparams.embed_dim}_"
+                f"d{hparams.depth}_"
+                f"heads{hparams.num_heads}_"
+                f"hs{hparams.hidden_size}_"
+                f"bs{hparams.batch_size}_"
+                f"ep{hparams.epochs}"
+            )
+            if model_type == "vit_swapped":
+                base += f"_si{hparams.swap_interval}_ss{hparams.swap_strategy}"
+            base += f"_{time.strftime('%Y%m%d-%H%M%S')}"
+            self.base_filename = base
+            
+        self.save_path = os.path.join(self.output_dir, f"{self.base_filename}.json")
+        self.save_path = os.path.join(self.output_dir, f"{self.base_filename}.json")
 
     def on_train_epoch_start(self, trainer, pl_module):
         self.epoch_start_time = time.time()

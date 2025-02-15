@@ -20,7 +20,7 @@ class CIFAR10DataModule(pl.LightningDataModule):
         # 1) Load the *full* training set with NO augmentation
         full_train_set = CIFAR10(
             root=self.data_dir,
-            train=True,
+            train=True, ## Does this create a problem>?
             transform=transforms_no_augment,  # <- Start with no augmentation
             download=True,
         )
