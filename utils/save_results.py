@@ -17,8 +17,9 @@ class SaveJSONCallback(pl.Callback):
         os.makedirs(self.output_dir, exist_ok=True)
         hparams = pl_module.hparams
         model_type = hparams.get("model_type", "model")
-        # Try to retrieve batch_size; if not present, set to "unknown"
         batch_size = getattr(hparams, "batch_size", "unknown")
+        # Retrieve max_epochs from the trainer
+        max_epochs = trainer.max_epochs
         base = (
             f"{model_type}_"
             f"ed{hparams.embed_dim}_"
@@ -26,7 +27,8 @@ class SaveJSONCallback(pl.Callback):
             f"heads{hparams.num_heads}_"
             f"hs{hparams.hidden_size}_"
             f"bs{batch_size}_"
-            f"ep{hparams.epochs}_"
+            # Use max_epochs from trainer instead of hparams
+            f"ep{max_epochs}_"
             f"wd{hparams.weight_decay}"
         )
         if model_type == "vit_swapped":
@@ -35,6 +37,7 @@ class SaveJSONCallback(pl.Callback):
         self.base_filename = base
         self.save_path = os.path.join(self.output_dir, f"{self.base_filename}.json")
 
+   
 
 
     def on_train_epoch_start(self, trainer, pl_module):
