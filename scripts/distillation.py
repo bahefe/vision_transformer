@@ -86,7 +86,7 @@ def main(args):
         precision = 32
 
     trainer = pl.Trainer(
-        max_epochs=50,
+        max_epochs=250,
         accelerator=accelerator,
         devices=1,
         precision=precision,
