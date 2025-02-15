@@ -24,6 +24,7 @@ def main(args):
 
     if args.model_type == "recurrent_state":
         model = LitRecurrentVisionTransformerWithState(
+            model_type=args.model_type,
             lr=args.lr,
             patch_size=args.patch_size,
             num_heads=args.num_heads,
@@ -32,7 +33,10 @@ def main(args):
             hidden_size=args.hidden_size,
             dropout=args.dropout,
             weight_decay=args.weight_decay,
+            batch_size=args.batch_size,  # Added
+            epochs=args.epochs,          # Added
         )
+
     
     elif args.model_type == "latent_space":
         model = LitLatentSpaceVisionTransformer(
@@ -55,6 +59,8 @@ def main(args):
             depth=args.depth,
             dropout=args.dropout,
             weight_decay=args.weight_decay,
+            batch_size=args.batch_size,  # Added
+            epochs=args.epochs, 
         )
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")

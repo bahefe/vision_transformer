@@ -111,18 +111,22 @@ class RecurrentVisionTransformerWithState(nn.Module):
 
 class LitRecurrentVisionTransformerWithState(pl.LightningModule):
     def __init__(self, 
+                 model_type="recurrent_state",
                  lr=1e-3,
                  num_steps=12,
                  weight_decay=0.01,
+                 batch_size=None,
+                 epochs=None,
                  **kwargs):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters()  # Now hparams includes model_type, batch_size, epochs, etc.
         
         self.model = RecurrentVisionTransformerWithState(
             num_steps=num_steps,
             **kwargs
         )
         self.criterion = nn.CrossEntropyLoss()
+
 
     def forward(self, x):
         return self.model(x)

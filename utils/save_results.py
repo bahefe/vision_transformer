@@ -15,38 +15,46 @@ class SaveJSONCallback(pl.Callback):
         self.epoch_start_time = None
 
     def on_fit_start(self, trainer, pl_module):
-        # Ensure the output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
-        
-        # Generate a timestamp in the format YYYYMMDD_HHMMSS
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Build the base filename from hyperparameters, mirroring the model state dict's naming
-        hparams = pl_module.hparams
+        hparams = dict(pl_module.hparams)
+        model_type   = hparams.get("model_type", "model")
+        embed_dim    = hparams.get("embed_dim", "ed")
+        # Try to get "depth" first, and if not available, fall back to "num_steps"
+        depth        = hparams.get("depth", hparams.get("num_steps", "d"))
+        num_heads    = hparams.get("num_heads", "heads")
+        lr           = hparams.get("lr", "lr")
+        batch_size   = hparams.get("batch_size", "bs")
+        epochs       = hparams.get("epochs", "ep")
+        weight_decay = hparams.get("weight_decay", "wd")
+        
         base_filename = (
-            f"{hparams.model_type}_"
-            f"ed{hparams.embed_dim}_"
-            f"d{hparams.depth}_"
-            f"heads{hparams.num_heads}_"
-            f"lr{hparams.lr}_"
-            f"bs{hparams.batch_size}_"
-            f"ep{hparams.epochs}_"
-            f"wd{hparams.weight_decay}_"
+            f"{model_type}_"
+            f"ed{embed_dim}_"
+            f"d{depth}_"
+            f"heads{num_heads}_"
+            f"lr{lr}_"
+            f"bs{batch_size}_"
+            f"ep{epochs}_"
+            f"wd{weight_decay}_"
             f"{timestamp}"
         )
         
-        # Append swap_interval and swap_strategy if using the swapped model
-        if hparams.model_type == "vit_swapped":
-            base_filename += f"_si{hparams.swap_interval}_ss{hparams.swap_strategy}"
+        if model_type == "vit_swapped":
+            swap_interval = hparams.get("swap_interval", None)
+            swap_strategy = hparams.get("swap_strategy", None)
+            if swap_interval is not None and swap_strategy is not None:
+                base_filename += f"_si{swap_interval}_ss{swap_strategy}"
         
-        # Create a JSON file using the same base filename (without a .pth extension)
         final_filename = base_filename + ".json"
         self.save_path = os.path.join(self.output_dir, final_filename)
         
-        # Create an initial (empty) JSON file.
         with open(self.save_path, "w") as f:
             json.dump({}, f, indent=4)
         print(f"[SaveJSONCallback] JSON file created at {self.save_path}")
+
+
 
     def on_train_epoch_start(self, trainer, pl_module):
         self.epoch_start_time = time.time()

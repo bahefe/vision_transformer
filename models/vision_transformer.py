@@ -94,10 +94,10 @@ class VisionTransformer(nn.Module):
         in_channels=3,
         num_classes=10,
         embed_dim=256,
-        depth=6,
-        num_heads=4,
+        depth=12,
+        num_heads=8,
         hidden_size=1024,  # Changed from mlp_ratio
-        dropout=0.0,
+        dropout=0.1,
     ):
         super().__init__()
         
@@ -162,33 +162,24 @@ class VisionTransformer(nn.Module):
 
 class LitVisionTransformer(pl.LightningModule):
     def __init__(self, 
+                 model_type="standard",
                  lr=1e-3,
-                 img_size=32,
-                 patch_size=4,
-                 in_channels=3,
-                 num_classes=10,
-                 embed_dim=256,
-                 depth=6,
-                 num_heads=4,
-                 hidden_size=1024,  # Changed
-                 dropout=0.1,
-                 label_smoothing=0.1,
-                 weight_decay=0.01):
+                 depth=12,
+                 weight_decay=0.01,
+                 batch_size=None,
+                 epochs=None,
+                 **kwargs):
         super().__init__()
+        # Save all hyperparameters (including model_type, batch_size, epochs, etc.)
         self.save_hyperparameters()
-    
+        
+        # Instantiate the VisionTransformer using depth from the arguments
+        # and the remaining keyword arguments
         self.model = VisionTransformer(
-            img_size=img_size,
-            patch_size=patch_size,
-            in_channels=in_channels,
-            num_classes=num_classes,
-            embed_dim=embed_dim,
             depth=depth,
-            num_heads=num_heads,
-            hidden_size=hidden_size,  # Changed
-            dropout=dropout
+            **kwargs
         )
-        self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        self.criterion = nn.CrossEntropyLoss()
 
         
     def forward(self, x):
