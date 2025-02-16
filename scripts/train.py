@@ -40,6 +40,7 @@ def main(args):
     
     elif args.model_type == "latent_space":
         model = LitLatentSpaceVisionTransformer(
+            model_type=args.model_type,
             lr=args.lr,
             patch_size=args.patch_size,
             num_heads=args.num_heads,
@@ -52,6 +53,7 @@ def main(args):
         )
     elif args.model_type in ["standard", "vit_swapped"]:
         model = LitVisionTransformer(
+            model_type=args.model_type,
             lr=args.lr,
             patch_size=args.patch_size,
             num_heads=args.num_heads,
