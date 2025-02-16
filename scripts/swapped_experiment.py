@@ -23,7 +23,7 @@ common_args = (
     "--dropout 0.1 "
     "--val_split 0.1 "
     "--test "                    # Enable test mode.
-    "--weight_decay 0.05 "
+    "--weight_decay 0.01 "
     "--model_type vit_swapped "  # Specify the swapped model.
 )
 
