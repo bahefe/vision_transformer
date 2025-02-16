@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch import optim
+from typing import Optional
 
 
 class MultiHeadSelfAttention(nn.Module):
@@ -168,6 +169,8 @@ class LitVisionTransformer(pl.LightningModule):
                  weight_decay=0.01,
                  batch_size=None,
                  epochs=None,
+                 swap_interval: Optional[float] = None,
+                 swap_strategy: Optional[int] = None,
                  **kwargs):
         super().__init__()
         # Save all hyperparameters (including model_type, batch_size, epochs, etc.)
