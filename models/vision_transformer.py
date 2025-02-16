@@ -11,39 +11,17 @@ from typing import Optional
 class MultiHeadSelfAttention(nn.Module):
     def __init__(self, embed_dim, num_heads, dropout=0.0):
         super().__init__()
-        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
-        
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
-        self.scale = 1.0 / math.sqrt(self.head_dim)
-
-        # Single linear layer for Q/K/V
-        self.qkv = nn.Linear(embed_dim, 3 * embed_dim)
-        self.out_proj = nn.Linear(embed_dim, embed_dim)
-        self.dropout = dropout
-
-    def forward(self, x):
-        B, N, D = x.shape
-        H, h_dim = self.num_heads, self.head_dim
-
-        # Project all at once [3*B, N, (H * h_dim)]
-        qkv = self.qkv(x).chunk(3, dim=-1)  # Tuple of [B, N, D] * 3
-        
-        # Reshape without permute
-        q, k, v = [t.view(B, N, H, h_dim).transpose(1, 2) for t in qkv]
-
-        # Use PyTorch's optimized attention (Flash Attention when available)
-        attn_output = F.scaled_dot_product_attention(
-            q, k, v,
-            dropout_p=self.dropout if self.training else 0.0,
-            scale=self.scale
+        self.attn = nn.MultiheadAttention(
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+            batch_first=True  # Critical for (B, N, D) input format
         )
 
-        # Merge heads
-        attn_output = attn_output.transpose(1, 2).reshape(B, N, D)
-        
-        return self.out_proj(attn_output)
+    def forward(self, x):
+        # x shape: [B, N, D]
+        attn_output, _ = self.attn(x, x, x)  # Self-attention
+        return attn_output
 
 class TransformerEncoderBlock(nn.Module):
     def __init__(self, embed_dim, num_heads, hidden_size, dropout=0.1):
