@@ -62,7 +62,9 @@ def main(args):
             dropout=args.dropout,
             weight_decay=args.weight_decay,
             batch_size=args.batch_size,  # Added
-            epochs=args.epochs, 
+            epochs=args.epochs,
+            swap_interval=args.swap_interval if args.model_type == "vit_swapped" else None,
+            swap_strategy=args.swap_strategy if args.model_type == "vit_swapped" else None,
         )
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")
