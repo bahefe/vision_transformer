@@ -84,6 +84,7 @@ class RecurrentVisionTransformer(nn.Module):
 
 class LitRecurrentVisionTransformer(pl.LightningModule):
     def __init__(self, 
+                 model_type = 'latent',
                  lr=1e-3,
                  num_steps=12,
                  weight_decay=0.01,
