@@ -69,16 +69,23 @@ class SaveJSONCallback(pl.Callback):
         train_acc = trainer.callback_metrics.get("train_acc")
         train_acc = float(train_acc) * 100.0 if train_acc is not None else None
 
-        # Create new epoch entry with training data
+        # Get learning rate(s) from the LearningRateMonitor
+        lr_metrics = {}
+        for key in trainer.callback_metrics:
+            if key.startswith("lr-AdamW"):  # Matches keys like "lr", "lr-AdamW", etc.
+                lr_metrics[key] = float(trainer.callback_metrics[key])
+
+        # Add to epoch data
         self.epoch_data.append({
             "epoch": current_epoch,
             "train_loss": float(train_loss) if train_loss is not None else None,
             "train_acc": train_acc,
             "time_minutes": round(epoch_mins, 3),
-            "val_loss": None,  # Initialize validation metrics
+            "val_loss": None,  # Will update in validation phase
             "val_acc": None,
+            "learning_rates": lr_metrics  # Add learning rate(s) here
         })
-
+        
     def on_validation_epoch_end(self, trainer, pl_module):
         # Get validation metrics
         val_loss = trainer.callback_metrics.get("val_loss")
