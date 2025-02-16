@@ -8,7 +8,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # Define the swap strategies and swap intervals to test.
 strategies = [1, 2, 3, 4]
-swap_intervals = [0.25, 0.10]
+swap_intervals = [10, 5, 2, 1, 0.25, 0.10]
 
 # Additional common arguments for train.py.
 common_args = (
@@ -24,7 +24,7 @@ common_args = (
     "--val_split 0.1 "
     "--test "                    # Enable test mode.
     "--weight_decay 0.05 "
-    "--model_type vit_swapped "  # Specify the swapped model.
+    "--model_type standard "  # Specify the swapped model.
 )
 
 # Set the relative path to the training script (relative to project root).
