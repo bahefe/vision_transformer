@@ -9,7 +9,6 @@ class SwapEncoderBlocksCallback(pl.Callback):
         super().__init__()
         self.swap_interval = swap_interval
         self.strategy = strategy
-        self.log_file = log_file
         self.swap_events = []
         self.next_swap_point = 0.0  # Track progress for next swap
         self.current_epoch = 0
