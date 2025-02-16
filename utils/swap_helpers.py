@@ -5,7 +5,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 
 class SwapEncoderBlocksCallback(pl.Callback):
-    def __init__(self, swap_interval=0.25, strategy=1, log_file="swap_log.json"):
+    def __init__(self, swap_interval=0.25, strategy=1):
         super().__init__()
         self.swap_interval = swap_interval
         self.strategy = strategy
@@ -95,11 +95,4 @@ class SwapEncoderBlocksCallback(pl.Callback):
             blocks[pos] = permuted[idx]
         return {"new_order": middle_indices}
 
-    def on_train_end(self, trainer, pl_module):
-        # Save swap events to log file
-        log_dir = "results"
-        os.makedirs(log_dir, exist_ok=True)
-        log_path = os.path.join(log_dir, self.log_file)
-        with open(log_path, "w") as f:
-            json.dump(self.swap_events, f, indent=4)
-        print(f"Swap events saved to {log_path}")
+    
