@@ -24,7 +24,7 @@ common_args = (
     "--val_split 0.1 "
     "--test "                    # Enable test mode.
     "--weight_decay 0.05 "
-    "--model_type standard "  # Specify the swapped model.
+    "--model_type vit_swapped "  # Specify the swapped model.
 )
 
 # Set the relative path to the training script (relative to project root).
