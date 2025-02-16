@@ -35,7 +35,6 @@ def main(args):
             weight_decay=args.weight_decay,
             batch_size=args.batch_size,  # Added
             epochs=args.epochs,          # Added
-            model_type=args.model_type,
         )
 
     
