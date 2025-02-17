@@ -29,7 +29,7 @@ class LatentSpaceVisionTransformer(nn.Module):
         depth_recurrent=10,            # Increased to 10 recurrent iterations
         num_heads=8,
         hidden_size=1024,              # For initial and final blocks
-        recurrent_hidden_size=14800,   # For the recurrent block (inflated)
+        recurrent_hidden_size=1024,   # For the recurrent block (inflated)
         dropout=0.1
     ):
         super().__init__()
