@@ -9,7 +9,7 @@ from typing import Optional
 
 
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, embed_dim, num_heads, dropout=0.0):
+    def __init__(self, embed_dim, num_heads, dropout=0.1):
         super().__init__()
         self.attn = nn.MultiheadAttention(
             embed_dim=embed_dim,
@@ -142,7 +142,7 @@ class VisionTransformer(nn.Module):
 class LitVisionTransformer(pl.LightningModule):
     def __init__(self, 
                  model_type="standard",
-                 lr=1e-3,
+                 lr=1e-4,
                  depth=12,
                  weight_decay=0.01,
                  batch_size=None,
