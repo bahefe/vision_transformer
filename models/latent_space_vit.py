@@ -97,9 +97,12 @@ class LitLatentSpaceVisionTransformer(pl.LightningModule):
     PyTorch Lightning module for the Latent Space Vision Transformer.
     """
     def __init__(self, 
-                 lr=0.0001,               # Updated default learning rate
-                 depth_recurrent=10,      # Use 10 recurrent iterations
-                 weight_decay=0.05,
+                 model_type="latent_space",
+                 lr=1e-4,
+                 depth_recurrent=10,
+                 weight_decay=0.01,
+                 batch_size=None,
+                 epochs=None,
                  **kwargs):
         super().__init__()
         self.save_hyperparameters()
