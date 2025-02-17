@@ -136,14 +136,13 @@ class LitRecurrentVisionTransformerWithState(pl.LightningModule):
         logits = self(images)
         loss = self.criterion(logits, labels)
 
+        # Accuracy calculation (handles both soft/hard labels)
         preds = logits.argmax(dim=1)
+        target_classes = labels.argmax(dim=1) if labels.dim() > 1 else labels  # Key change
+        acc = (preds == target_classes).float().mean()
 
-        # If labels are one-hot, convert them to integer class indices
-        if labels.dim() > 1 and labels.shape[1] > 1:
-            labels = labels.argmax(dim=1)
-
-        acc = (preds == labels).float().mean()
-
+        current_lr = self.trainer.optimizers[0].param_groups[0]["lr"]
+        self.log("lr", current_lr, prog_bar=True)
 
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_acc", acc, prog_bar=True)
@@ -154,15 +153,9 @@ class LitRecurrentVisionTransformerWithState(pl.LightningModule):
         logits = self(images)
         loss = self.criterion(logits, labels)
 
+        # Validation labels are always hard targets - no need for argmax check
         preds = logits.argmax(dim=1)
-
-        # If labels are one-hot, convert them to integer class indices
-        if labels.dim() > 1 and labels.shape[1] > 1:
-            labels = labels.argmax(dim=1)
-
-        acc = (preds == labels).float().mean()
-
-
+        acc = (preds == labels).float().mean()  # Direct comparison
 
         self.log("val_loss", loss, prog_bar=False)
         self.log("val_acc", acc, prog_bar=True)
@@ -173,19 +166,14 @@ class LitRecurrentVisionTransformerWithState(pl.LightningModule):
         logits = self(images)
         loss = self.criterion(logits, labels)
 
+        # Test labels are always hard targets
         preds = logits.argmax(dim=1)
-
-        # If labels are one-hot, convert them to integer class indices
-        if labels.dim() > 1 and labels.shape[1] > 1:
-            labels = labels.argmax(dim=1)
-
-        acc = (preds == labels).float().mean()
-
+        acc = (preds == labels).float().mean()  # Direct comparison
 
         self.log("test_loss", loss, prog_bar=False)
         self.log("test_acc", acc, prog_bar=True)
         return loss
-
+        
     def configure_optimizers(self):
         return torch.optim.AdamW(
             self.parameters(),
