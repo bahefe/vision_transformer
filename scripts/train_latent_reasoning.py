@@ -44,6 +44,8 @@ def main(args):
         mean_recurrence=args.mean_recurrence,
         mean_backprop_depth=args.mean_backprop_depth,
         dropout=args.dropout,
+        batch_size=args.batch_size,  # Added
+        epochs=args.epochs,  
     )
 
     # 3) Create callbacks
