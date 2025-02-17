@@ -136,10 +136,14 @@ class LitRecurrentVisionTransformerWithState(pl.LightningModule):
         logits = self(images)
         loss = self.criterion(logits, labels)
 
-        # Accuracy (handles both one-hot and integer labels)
         preds = logits.argmax(dim=1)
-        target_classes = labels.argmax(dim=1) if labels.dim() > 1 else labels
-        acc = (preds == target_classes).float().mean()
+
+        # If labels are one-hot, convert them to integer class indices
+        if labels.dim() > 1 and labels.shape[1] > 1:
+            labels = labels.argmax(dim=1)
+
+        acc = (preds == labels).float().mean()
+
 
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_acc", acc, prog_bar=True)
@@ -151,7 +155,14 @@ class LitRecurrentVisionTransformerWithState(pl.LightningModule):
         loss = self.criterion(logits, labels)
 
         preds = logits.argmax(dim=1)
+
+        # If labels are one-hot, convert them to integer class indices
+        if labels.dim() > 1 and labels.shape[1] > 1:
+            labels = labels.argmax(dim=1)
+
         acc = (preds == labels).float().mean()
+
+
 
         self.log("val_loss", loss, prog_bar=False)
         self.log("val_acc", acc, prog_bar=True)
@@ -163,16 +174,24 @@ class LitRecurrentVisionTransformerWithState(pl.LightningModule):
         loss = self.criterion(logits, labels)
 
         preds = logits.argmax(dim=1)
+
+        # If labels are one-hot, convert them to integer class indices
+        if labels.dim() > 1 and labels.shape[1] > 1:
+            labels = labels.argmax(dim=1)
+
         acc = (preds == labels).float().mean()
+
 
         self.log("test_loss", loss, prog_bar=False)
         self.log("test_acc", acc, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(
+        return torch.optim.AdamW(
             self.parameters(),
             lr=self.hparams.lr,
             weight_decay=self.hparams.weight_decay
         )
-        return optimizer
+
+
+   
