@@ -14,7 +14,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 # Import the new model class
 # Make sure you've placed the model code into this file or in "models/recurrent_latent_reasoning_vit.py"
 # and adjust the import path accordingly.
-from models.recurrent_latent_reasoning_vit import LitRecurrentVisionTransformer
+from models.latent_reasoning import LitLatentReasoningVisionTransformer
 
 def main(args):
     # 1) Data Module
@@ -25,7 +25,7 @@ def main(args):
 
     # 2) Create the Model
     #    We map command line arguments to model constructor args as needed.
-    model = LitRecurrentVisionTransformer(
+    model = LitLatentReasoningVisionTransformer(
         lr=args.lr,
         weight_decay=args.weight_decay,
         # Pass in all the custom parameters for your Recurrent ViT:
