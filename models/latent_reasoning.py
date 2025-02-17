@@ -288,10 +288,13 @@ class LatentReasoningVisionTransformer(nn.Module):
 ###############################################################################
 class LitLatentReasoningVisionTransformer(pl.LightningModule):
     def __init__(
-        self,
-        lr=1e-4,
-        weight_decay=1e-2,
-        **model_kwargs
+         self, 
+         model_type="latent_reasoning",
+         lr=1e-4,
+         weight_decay=0.01,
+         batch_size=None,
+         epochs=None,
+         **model_kwargs
     ):
         super().__init__()
         # Save hyperparams
