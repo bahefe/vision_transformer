@@ -288,13 +288,12 @@ class LatentReasoningVisionTransformer(nn.Module):
 ###############################################################################
 class LitLatentReasoningVisionTransformer(pl.LightningModule):
     def __init__(
-         self, 
-         model_type="latent_reasoning",
-         lr=1e-4,
-         weight_decay=0.01,
-         batch_size=None,
-         epochs=None,
-         **model_kwargs
+        self,
+        lr=1e-4,
+        weight_decay=1e-2,
+        batch_size=None,
+        epochs=None,
+        **model_kwargs
     ):
         super().__init__()
         # Save hyperparams
@@ -310,8 +309,15 @@ class LitLatentReasoningVisionTransformer(pl.LightningModule):
         images, labels = batch
         logits = self(images)
         loss = self.criterion(logits, labels)
+
         preds = logits.argmax(dim=1)
+
+        # If labels are one-hot, convert them to integer class indices
+        if labels.dim() > 1 and labels.shape[1] > 1:
+            labels = labels.argmax(dim=1)
+
         acc = (preds == labels).float().mean()
+
 
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_acc", acc, prog_bar=True)
@@ -321,8 +327,16 @@ class LitLatentReasoningVisionTransformer(pl.LightningModule):
         images, labels = batch
         logits = self(images)
         loss = self.criterion(logits, labels)
+
         preds = logits.argmax(dim=1)
+
+        # If labels are one-hot, convert them to integer class indices
+        if labels.dim() > 1 and labels.shape[1] > 1:
+            labels = labels.argmax(dim=1)
+
         acc = (preds == labels).float().mean()
+
+
 
         self.log("val_loss", loss, prog_bar=False)
         self.log("val_acc", acc, prog_bar=True)
@@ -332,8 +346,15 @@ class LitLatentReasoningVisionTransformer(pl.LightningModule):
         images, labels = batch
         logits = self(images)
         loss = self.criterion(logits, labels)
+
         preds = logits.argmax(dim=1)
+
+        # If labels are one-hot, convert them to integer class indices
+        if labels.dim() > 1 and labels.shape[1] > 1:
+            labels = labels.argmax(dim=1)
+
         acc = (preds == labels).float().mean()
+
 
         self.log("test_loss", loss, prog_bar=False)
         self.log("test_acc", acc, prog_bar=True)
