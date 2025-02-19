@@ -5,6 +5,7 @@ import argparse
 from data.data_module import CIFAR10DataModule
 from models.recurrent_state_vit import LitRecurrentVisionTransformerWithState
 from pytorch_lightning.callbacks import LearningRateMonitor
+from utils.save_results import SaveJSONCallback
 
 def load_middle_block_weights(model, checkpoint_path, block_index=5):
     """
