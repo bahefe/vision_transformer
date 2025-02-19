@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import argparse
 from data.data_module import CIFAR10DataModule
 from models.recurrent_state_vit import LitRecurrentVisionTransformerWithState
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 def load_middle_block_weights(model, checkpoint_path, block_index=5):
     """
@@ -74,6 +75,12 @@ def main(args):
     # Load the middle block (block 6, i.e. index 5) parameters into the recurrent block.
     load_middle_block_weights(model, checkpoint_path, block_index=5)
     
+    lr_monitor = LearningRateMonitor(logging_interval='epoch')
+    callbacks = [
+        SaveJSONCallback(),  # This callback saves training metrics (e.g., accuracies) to a JSON file.
+        lr_monitor,
+    ]
+
     # Setup the trainer for 50 epochs.
     if torch.cuda.is_available():
         accelerator = "gpu"
@@ -85,10 +92,11 @@ def main(args):
         accelerator = "cpu"
         precision = 32
 
-    trainer = pl.Trainer(
-        max_epochs=250,
-        accelerator=accelerator,
+     trainer = pl.Trainer(
+        max_epochs=args.epochs,
+        callbacks=callbacks,
         devices=1,
+        accelerator=accelerator,
         precision=precision,
     )
     
