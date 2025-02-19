@@ -28,11 +28,14 @@ class SaveJSONCallback(pl.Callback):
         batch_size   = hparams.get("batch_size", "bs")
         epochs       = hparams.get("epochs", "ep")
         weight_decay = hparams.get("weight_decay", "wd")
+        hidden_size  = hparams.get("hidden_size", 'hs')
+        
         
         base_filename = (
             f"{model_type}_"
             f"ed{embed_dim}_"
             f"d{depth}_"
+            f"hs{hidden_size}_"
             f"heads{num_heads}_"
             f"lr{lr}_"
             f"bs{batch_size}_"
