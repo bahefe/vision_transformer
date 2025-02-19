@@ -228,7 +228,7 @@ class LitVisionTransformer(pl.LightningModule):
         "lr_scheduler": {
             "scheduler": scheduler,
             "interval": "epoch",  # or "step" if you prefer per-batch updates
-            "frequency": 1,
+            "frequency": 4,
         }
     }
 
