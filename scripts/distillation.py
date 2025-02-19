@@ -69,7 +69,7 @@ def main(args):
     # Path to the checkpoint containing the standard model's weights.
     checkpoint_path = os.path.join(
         "results", 
-        "vit_swapped_ed256_d12_heads8_lr0.0001_bs512_ep250_wd0.05_si2_ss2.pth"
+        "vit_swapped_ed256_d12_heads8_lr0.0001_bs512_ep250_wd0.01_20250217_191444_si0.25_ss3.pth"
     )
     
     # Load the middle block (block 6, i.e. index 5) parameters into the recurrent block.
