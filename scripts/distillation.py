@@ -92,7 +92,7 @@ def main(args):
         accelerator = "cpu"
         precision = 32
 
-     trainer = pl.Trainer(
+    trainer = pl.Trainer(
         max_epochs=args.epochs,
         callbacks=callbacks,
         devices=1,
