@@ -65,6 +65,7 @@ def main(args):
         hidden_size=args.hidden_size,
         dropout=args.dropout,
         weight_decay=args.weight_decay,
+        epochs=args.epochs,  
     )
     
     # Path to the checkpoint containing the standard model's weights.
@@ -123,5 +124,6 @@ if __name__ == "__main__":
     parser.add_argument("--patch_size", type=int, default=4)
     parser.add_argument("--dropout", type=float, default=0.1)
     parser.add_argument("--weight_decay", type=float, default=0.05)
+    parser.add_argument("--epochs", type=int, default=10)
     args = parser.parse_args()
     main(args)
