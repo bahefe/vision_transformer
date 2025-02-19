@@ -59,6 +59,7 @@ def main(args):
             num_heads=args.num_heads,
             embed_dim=args.embed_dim,
             depth=args.depth,
+            hidden_size=args.hidden_size,
             dropout=args.dropout,
             weight_decay=args.weight_decay,
             batch_size=args.batch_size,  # Added
@@ -115,6 +116,7 @@ def main(args):
         f"{args.model_type}_"
         f"ed{args.embed_dim}_"
         f"d{args.depth}_"
+        f"hs{args.args.hidden_size}_"
         f"heads{args.num_heads}_"
         f"lr{args.lr}_"
         f"bs{args.batch_size}_"
