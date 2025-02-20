@@ -116,7 +116,7 @@ def main(args):
         f"{args.model_type}_"
         f"ed{args.embed_dim}_"
         f"d{args.depth}_"
-        f"hs{args.args.hidden_size}_"
+        f"hs{args.hidden_size}_"
         f"heads{args.num_heads}_"
         f"lr{args.lr}_"
         f"bs{args.batch_size}_"
