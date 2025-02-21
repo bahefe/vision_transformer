@@ -2,22 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+
 from .vision_transformer import PatchEmbedding, TransformerEncoderBlock
 
 class LatentSpaceVisionTransformer(nn.Module):
     """
-    Vision Transformer with recurrent processing and latent space data injection.
-    
-    The model first embeds the image into patches, adds a class token and 
-    positional embeddings, and then processes them through:
-    
-    1. An initial transformer block.
-    2. Several recurrent steps (default 10) where, in each iteration, the original 
-       patch embeddings are injected (added) into the current state (for patch tokens),
-       then processed with a recurrent block. The recurrent block uses an inflated 
-       MLP hidden dimension (default 14800) so that its parameter count fills the budget.
-    3. A final transformer block, followed by layer normalization and a 
-       classification head.
+    Vision Transformer with recurrent processing and latent space data injection,
+    where the "injection" is the output of the initial block, re-added at each 
+    recurrent step (similar to RecurrentVisionTransformerWithState).
     """
     def __init__(
         self,
@@ -26,25 +18,25 @@ class LatentSpaceVisionTransformer(nn.Module):
         in_channels=3,
         num_classes=10,
         embed_dim=256,
-        depth_recurrent=10,            # Increased to 10 recurrent iterations
+        depth_recurrent=10,
         num_heads=8,
-        hidden_size=1024,              # For initial and final blocks
-        recurrent_hidden_size=1024,   # For the recurrent block (inflated)
+        hidden_size=1024,
+        recurrent_hidden_size=1024,
         dropout=0.1
     ):
         super().__init__()
-        # 1. Embedding components
+        # 1) Embedding components
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.randn(1, self.patch_embed.num_patches + 1, embed_dim))
         self.pos_drop = nn.Dropout(dropout)
         
-        # 2. Transformer blocks
+        # 2) Transformer blocks
         self.initial_block = TransformerEncoderBlock(embed_dim, num_heads, hidden_size, dropout)
         self.recurrent_block = TransformerEncoderBlock(embed_dim, num_heads, recurrent_hidden_size, dropout)
         self.final_block = TransformerEncoderBlock(embed_dim, num_heads, hidden_size, dropout)
         
-        # 3. Classification head
+        # 3) Classification head
         self.norm = nn.LayerNorm(embed_dim)
         self.head = nn.Linear(embed_dim, num_classes)
         
@@ -61,38 +53,38 @@ class LatentSpaceVisionTransformer(nn.Module):
         """
         x: image tensor of shape (B, C, H, W)
         """
-        # Obtain patch embeddings: [B, num_patches, embed_dim]
-        patch_embeddings = self.patch_embed(x)
+        # -- (1) Patch embedding + positional embedding --
+        patch_embeddings = self.patch_embed(x)               # [B, num_patches, D]
         B, N, D = patch_embeddings.shape
         
-        # Concatenate class token and add positional embedding
-        cls_tokens = self.cls_token.expand(B, -1, -1)  # [B, 1, D]
-        x = torch.cat((cls_tokens, patch_embeddings), dim=1)  # [B, num_patches+1, D]
+        cls_tokens = self.cls_token.expand(B, -1, -1)        # [B, 1, D]
+        x = torch.cat((cls_tokens, patch_embeddings), dim=1) # [B, N+1, D]
         x = x + self.pos_embed
         x = self.pos_drop(x)
-        
-        # Initial processing through a transformer block
-        state = self.initial_block(x)
-        
-        # Recurrent processing with latent space data injection
+
+        # -- (2) Initial block: produce an initial hidden state "h" --
+        h = self.initial_block(x)  # shape [B, N+1, D]
+
+        # Save "constant" injection (the output of the initial block) 
+        # to re-add at each step, just like h + x in the recurrent-state model.
+        constant_injection = h
+
+        # -- (3) Recurrent processing --
         for _ in range(self.depth_recurrent):
-            # For patch tokens (all tokens except the class token),
-            # add the original patch embeddings to the current state.
-            state_patches = state[:, 1:, :] + patch_embeddings
-            # Keep the class token unchanged.
-            state_cls = state[:, :1, :]
-            # Concatenate and pass through the recurrent block.
-            state = torch.cat([state_cls, state_patches], dim=1)
-            state = self.recurrent_block(state)
-        
-        # Final processing
-        state = self.final_block(state)
-        
-        # Classification head: layer norm then linear classifier using the class token.
-        state = self.norm(state)
-        cls_token = state[:, 0]  # Use class token
-        logits = self.head(cls_token)
+            # Combine old hidden state (h) with the constant output 
+            # from the initial block at every timestep
+            combined = h + constant_injection
+            
+            # Pass through the recurrent block
+            h = self.recurrent_block(combined)
+
+        # -- (4) Final processing + classification --
+        h = self.final_block(h)
+        h = self.norm(h)
+        cls_token_final = h[:, 0]  # class token
+        logits = self.head(cls_token_final)
         return logits
+
 
 class LitLatentSpaceVisionTransformer(pl.LightningModule):
     """
