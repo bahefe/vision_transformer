@@ -54,6 +54,8 @@ class LatentSpaceVisionTransformer(nn.Module):
     def _init_weights(self):
         nn.init.normal_(self.cls_token, std=0.02)
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        nn.init.xavier_uniform_(self.head.weight)
+        nn.init.normal_(self.head.bias, std=1e-6)
 
     def forward(self, x):
         """
