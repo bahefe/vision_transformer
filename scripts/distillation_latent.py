@@ -74,9 +74,16 @@ def main(args):
 
     # 2) Instantiate your LatentSpaceVisionTransformer Lightning module
     model = LitLatentSpaceVisionTransformer(
+        model_type="latent_space",
         lr=args.lr,
-        # You may also pass other hyperparams your model expects if not set by default
-        # e.g. embed_dim, depth_recurrent, etc.
+        patch_size=args.patch_size,
+        num_heads=args.num_heads,
+        embed_dim=args.embed_dim,
+        depth_recurrent=args.depth,  # using 'depth' as the number of recurrent iterations
+        hidden_size=args.hidden_size,
+        recurrent_hidden_size=args.recurrent_hidden_size,  # New parameter passed here
+        dropout=args.dropout,
+        weight_decay=args.weight_decay,
     )
 
     # 3) Optionally load blocks from the standard ViT checkpoint
