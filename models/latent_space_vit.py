@@ -10,6 +10,8 @@ class LatentSpaceVisionTransformer(nn.Module):
     Vision Transformer with recurrent processing and latent space data injection,
     where the "injection" is the output of the initial block, re-added at each 
     recurrent step (similar to RecurrentVisionTransformerWithState).
+    
+    Modified: One initial block and one recurrent block (repeated 11 times) with no final block.
     """
     def __init__(
         self,
@@ -18,7 +20,8 @@ class LatentSpaceVisionTransformer(nn.Module):
         in_channels=3,
         num_classes=10,
         embed_dim=256,
-        depth_recurrent=10,
+        # Fixed recurrent depth at 11 steps
+        depth_recurrent=11,
         num_heads=8,
         hidden_size=1024,
         recurrent_hidden_size=1024,
@@ -34,7 +37,6 @@ class LatentSpaceVisionTransformer(nn.Module):
         # 2) Transformer blocks
         self.initial_block = TransformerEncoderBlock(embed_dim, num_heads, hidden_size, dropout)
         self.recurrent_block = TransformerEncoderBlock(embed_dim, num_heads, recurrent_hidden_size, dropout)
-        self.final_block = TransformerEncoderBlock(embed_dim, num_heads, hidden_size, dropout)
         
         # 3) Classification head
         self.norm = nn.LayerNorm(embed_dim)
@@ -65,21 +67,16 @@ class LatentSpaceVisionTransformer(nn.Module):
         # -- (2) Initial block: produce an initial hidden state "h" --
         h = self.initial_block(x)  # shape [B, N+1, D]
 
-        # Save "constant" injection (the output of the initial block) 
-        # to re-add at each step, just like h + x in the recurrent-state model.
+        # Save "constant" injection to re-add at each step (output of initial block)
         constant_injection = h
 
         # -- (3) Recurrent processing --
         for _ in range(self.depth_recurrent):
-            # Combine old hidden state (h) with the constant output 
-            # from the initial block at every timestep
+            # Combine current hidden state with the constant injection at every timestep
             combined = h + constant_injection
-            
-            # Pass through the recurrent block
             h = self.recurrent_block(combined)
 
-        # -- (4) Final processing + classification --
-        h = self.final_block(h)
+        # -- (4) Classification --
         h = self.norm(h)
         cls_token_final = h[:, 0]  # class token
         logits = self.head(cls_token_final)
@@ -88,12 +85,12 @@ class LatentSpaceVisionTransformer(nn.Module):
 
 class LitLatentSpaceVisionTransformer(pl.LightningModule):
     """
-    PyTorch Lightning module for the Latent Space Vision Transformer.
+    PyTorch Lightning module for the modified Latent Space Vision Transformer.
     """
     def __init__(self, 
                  model_type="latent_space",
                  lr=1e-4,
-                 depth_recurrent=10,
+                 depth_recurrent=11,  # now fixed at 11 steps
                  weight_decay=0.01,
                  batch_size=None,
                  epochs=None,
