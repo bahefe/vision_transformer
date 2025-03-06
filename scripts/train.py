@@ -145,14 +145,14 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", type=str, default="standard",
                         choices=["standard", "recurrent_state", "vit_swapped", "latent_space"])
     parser.add_argument("--hidden_size", type=int, default=1024)
-    parser.add_argument("--recurrent_hidden_size", type=int, default=14800,
+    parser.add_argument("--recurrent_hidden_size", type=int, default=1024,
                         help="Hidden size for the recurrent block (inflated MLP dimension)")
     parser.add_argument("--data_dir", type=str, default="./data")
     parser.add_argument("--batch_size", type=int, default=512)
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=250)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--embed_dim", type=int, default=256)
-    parser.add_argument("--depth", type=int, default=6)
+    parser.add_argument("--depth", type=int, default=11)
     parser.add_argument("--patch_size", type=int, default=4)
     parser.add_argument("--num_heads", type=int, default=8)
     parser.add_argument("--dropout", type=float, default=0.1)
